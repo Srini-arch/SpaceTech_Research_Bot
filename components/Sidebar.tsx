@@ -42,7 +42,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentStage, logs }) => {
             <Rocket className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-xl font-black tracking-tighter text-white">ASTRA AI</h1>
+            <h1 className="text-xl font-black tracking-tighter text-white uppercase">MAIRIS PRIME</h1>
             <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Research Engine v3.0</div>
           </div>
         </div>

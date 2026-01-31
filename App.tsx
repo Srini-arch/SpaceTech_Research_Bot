@@ -75,7 +75,7 @@ const INITIAL_KNOWLEDGE: RocketKnowledgeState = {
   pastReports: []
 };
 
-// Removed redundant global declaration of aistudio as it is pre-configured in the environment.
+const STORAGE_KEY = 'mairis_prime_blueprint_v1';
 
 const downloadFile = (content: string, filename: string, contentType: string) => {
   const blob = new Blob([content], { type: contentType });
@@ -190,12 +190,12 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const saved = localStorage.getItem('astra_master_blueprint_v12');
+    const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) setKnowledge(JSON.parse(saved));
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('astra_master_blueprint_v12', JSON.stringify(knowledge));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(knowledge));
   }, [knowledge]);
 
   const addLog = useCallback((agentName: string, message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') => {
@@ -212,9 +212,9 @@ const App: React.FC = () => {
   };
 
   const resetProgress = useCallback(() => {
-    if (window.confirm('WARNING: CORE RESET. This will permanently wipe all verified breakthroughs and mathematical proofs. Proceed?')) {
+    if (window.confirm('WARNING: CORE RESET. This will permanently wipe all verified breakthroughs and mathematical proofs from Mairis Prime. Proceed?')) {
       setKnowledge(INITIAL_KNOWLEDGE);
-      localStorage.removeItem('astra_master_blueprint_v12');
+      localStorage.removeItem(STORAGE_KEY);
       setStage(ResearchStage.IDLE);
       setReport(null);
       setTopics([]);
@@ -357,7 +357,7 @@ ${c.testResults}
 
   const downloadFullSystemState = () => {
     const content = JSON.stringify(knowledge, null, 2);
-    downloadFile(content, `astra_emergency_state_dump_${Date.now()}.json`, 'application/json');
+    downloadFile(content, `mairis_prime_emergency_state_dump_${Date.now()}.json`, 'application/json');
     addLog('System', 'EMERGENCY DATA RECOVERY COMPLETED. MASTER JSON GENERATED.', 'success');
   };
 
@@ -479,7 +479,7 @@ ${c.testResults}
               <Lock className="w-14 h-14" />
            </div>
            
-           <h2 className="text-6xl font-black uppercase tracking-tighter text-white mb-8">Access Astra Core</h2>
+           <h2 className="text-6xl font-black uppercase tracking-tighter text-white mb-8">Access Mairis Prime</h2>
            <p className="text-2xl text-slate-400 font-light leading-relaxed mb-16 px-4">
               To proceed with high-fidelity aerospace simulations and mathematical verification, please connect your <span className="text-blue-400 font-bold">Paid Gemini API Key</span>.
            </p>
@@ -580,7 +580,7 @@ ${c.testResults}
                </div>
                <div className="space-y-10">
                  <h1 className="text-[10rem] font-black uppercase tracking-tighter leading-[0.75] italic">
-                   Astra <br/><span className="text-transparent bg-clip-text bg-gradient-to-br from-blue-400 via-indigo-500 to-emerald-400">Omniscient</span>
+                   Mairis Prime
                  </h1>
                  <p className="text-3xl text-slate-400 max-w-4xl mx-auto font-light leading-relaxed tracking-tight">
                    Building a 100% Viable Aerospace System through <span className="text-blue-400 font-bold underline decoration-blue-500/30">Autonomous Mathematical Proof</span>.
