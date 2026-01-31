@@ -18,7 +18,6 @@ import { MOCK_PAPERS } from './constants';
 import { geminiService } from './services/geminiService';
 import { 
   CheckCircle,
-  Terminal,
   FileCode,
   TrendingUp,
   TrendingDown,
@@ -26,43 +25,29 @@ import {
   Pause,
   BrainCircuit,
   Database,
-  Search,
   Milestone,
   Zap,
-  ArrowRight,
-  Award,
-  History,
-  Lightbulb,
   Zap as Power,
-  Layout,
   LayoutDashboard,
   Target,
   FlaskRound as Flask,
-  Info,
   Download,
-  Eye,
   Shield,
-  Gauge,
   Monitor,
   Cpu,
   Layers,
-  Square,
   RotateCcw,
   FileText,
-  Save,
-  Code2,
-  FunctionSquare,
   HardDriveDownload,
-  Fingerprint,
   Key,
-  ExternalLink,
   Lock,
   Loader2,
   BookOpen,
   ArrowLeft,
   Settings,
-  ChevronRight,
-  Box
+  Box,
+  AlertTriangle,
+  RefreshCw
 } from 'lucide-react';
 
 const INITIAL_KNOWLEDGE: RocketKnowledgeState = {
@@ -80,7 +65,7 @@ const INITIAL_KNOWLEDGE: RocketKnowledgeState = {
   pastReports: []
 };
 
-const STORAGE_KEY = 'mairis_prime_blueprint_v3';
+const STORAGE_KEY = 'mairis_prime_blueprint_v5';
 
 const downloadFile = (content: string, filename: string, contentType: string) => {
   const blob = new Blob([content], { type: contentType });
@@ -112,7 +97,7 @@ const DataChart: React.FC<{ data: { label: string, points: ChartPoint[], color: 
              stroke={data.color || '#3b82f6'}
              strokeWidth="3"
              strokeLinecap="round"
-             className="transition-all duration-1000 shadow-[0_0_15px_rgba(59,130,246,0.3)]"
+             className="transition-all duration-1000"
            />
            {data.points.map((p, i) => (
              <circle 
@@ -151,14 +136,20 @@ const App: React.FC = () => {
   const isAutonomousRef = useRef(isAutonomous);
   useEffect(() => { isAutonomousRef.current = isAutonomous; }, [isAutonomous]);
 
+  // Check API Key status on mount
   const checkApiKeyStatus = useCallback(async () => {
     // @ts-ignore
     if (window.aistudio) {
-      // @ts-ignore
-      const hasKey = await window.aistudio.hasSelectedApiKey();
-      setIsKeyRequired(!hasKey);
+      try {
+        // @ts-ignore
+        const hasKey = await window.aistudio.hasSelectedApiKey();
+        setIsKeyRequired(!hasKey);
+      } catch (e) {
+        setIsKeyRequired(true);
+      }
     } else {
-      setIsKeyRequired(false);
+      // If not in aistudio environment, rely on environment variable
+      setIsKeyRequired(!process.env.API_KEY);
     }
     setIsKeyChecking(false);
   }, []);
@@ -180,33 +171,33 @@ const App: React.FC = () => {
     setLogs(prev => [...prev, { agentName, message, timestamp: new Date().toISOString(), type }]);
   }, []);
 
-  // Fix: Implemented downloadFullSystemState to handle full system state exports
-  const downloadFullSystemState = useCallback(() => {
-    const content = JSON.stringify(knowledge, null, 2);
-    downloadFile(content, `mairis-prime-state-${Date.now()}.json`, 'application/json');
-    addLog('System', 'Full state exported to JSON.', 'success');
-  }, [knowledge, addLog]);
-
   const handleOpenSelectKey = async () => {
     // @ts-ignore
     if (window.aistudio) {
-      // @ts-ignore
-      await window.aistudio.openSelectKey();
-      // Assume successful selection as per prompt instructions
-      setIsKeyRequired(false);
-      addLog('System', 'Credentials updated via secure portal.', 'success');
+      addLog('System', 'Opening API Key selection portal...', 'info');
+      try {
+        // @ts-ignore
+        await window.aistudio.openSelectKey();
+        // Mandatory instruction: Assume success to mitigate race condition
+        setIsKeyRequired(false);
+        addLog('System', 'Key linked. Resuming engine access.', 'success');
+      } catch (err) {
+        addLog('System', 'Key portal failed to initialize.', 'error');
+      }
+    } else {
+      alert("Project Key Portal is only available in the cloud execution environment.");
     }
   };
 
   const resetProgress = useCallback(() => {
-    if (window.confirm('WARNING: This will purge all research history and engine status. Confirm core reset?')) {
+    if (window.confirm('PERMANENT ACTION: Purge all verified research history and engine readiness?')) {
       setKnowledge(INITIAL_KNOWLEDGE);
       localStorage.removeItem(STORAGE_KEY);
       setStage(ResearchStage.IDLE);
       setReport(null);
       setIsAutonomous(false);
       setIsLoading(false);
-      addLog('System', 'MASTER RESET COMPLETE.', 'warning');
+      addLog('System', 'CORE DATA PURGE: SYSTEM RESET TO GENESIS.', 'warning');
     }
   }, [addLog]);
 
@@ -223,421 +214,343 @@ const App: React.FC = () => {
     setReport(null);
 
     const target = calculatePriority();
-    addLog('Orchestrator', `Commencing research loop for ${target.toUpperCase()}...`, 'info');
+    addLog('Orchestrator', `Recursion Initiated: Mapping Delta for ${target.toUpperCase()}.`, 'info');
 
     try {
       setStage(ResearchStage.TOPIC_DISCOVERY);
-      await new Promise(r => setTimeout(r, 1000));
       const discoveredTopics = await geminiService.discoverTopics(MOCK_PAPERS, knowledge, target);
       setTopics(discoveredTopics);
-      addLog('Discovery', `Strategic roadmap established. Novelty score: High.`, 'success');
+      addLog('Discovery Engine', `Found ${discoveredTopics.length} potential innovation gaps.`, 'success');
 
       setStage(ResearchStage.LITERATURE_SYNTHESIS);
       const synthesis = await geminiService.synthesizeLiterature(MOCK_PAPERS);
+      addLog('Synthesis Agent', 'Cross-correlation of findings complete.', 'success');
       
       setStage(ResearchStage.VISUAL_ANALYSIS);
       const visuals = await geminiService.analyzeVisuals(MOCK_PAPERS);
       setVisualFindings(visuals);
+      addLog('Vision Agent', 'Multimodal analysis of diagrams complete.', 'success');
 
       setStage(ResearchStage.HYPOTHESIS_GENERATION);
-      const hyps = await geminiService.generateHypotheses(synthesis, visuals, knowledge);
-      setHypotheses(hyps);
+      const hyp = await geminiService.generateHypotheses(synthesis, visuals, knowledge);
+      setHypotheses(hyp);
+      addLog('Hypothesis Generator', `Formulated ${hyp.length} testable conjectures.`, 'success');
+      const selectedHyp = hyp[0];
 
-      if (isAutonomousRef.current) {
-        await executeVerificationAndPublication(hyps[0]);
-      } else {
-        setIsLoading(false);
-      }
-    } catch (error) {
-      if (error instanceof Error && error.message.includes("Requested entity was not found")) {
-        addLog('System', 'API Authentication Failure. Re-selection triggered.', 'error');
-        setIsKeyRequired(true);
-      } else {
-        addLog('Orchestrator', `Critical Fault: ${error instanceof Error ? error.message : 'Unknown'}`, 'error');
-      }
-      setIsLoading(false);
-      setIsAutonomous(false);
-    }
-  };
-
-  const executeVerificationAndPublication = async (hyp: Hypothesis) => {
-    setIsLoading(true);
-    try {
       setStage(ResearchStage.CODE_VERIFICATION);
-      const codeResults = await geminiService.runCodeLab(hyp);
-      
+      const codeResults = await geminiService.runCodeLab(selectedHyp);
+      addLog('Code Lab', 'First-principles physics simulations complete.', 'success');
+
       setStage(ResearchStage.SCIENTIFIC_VERIFICATION);
-      const verif = await geminiService.verifyHypothesis(hyp, visualFindings, codeResults);
-      
+      const verification = await geminiService.verifyHypothesis(selectedHyp, visuals, codeResults);
+      addLog('Verification Suite', 'Peer-level audit and verdict reached.', 'success');
+
       setStage(ResearchStage.JOURNAL_PUBLICATION);
-      const publishedReport = await geminiService.publishJournal(hyp, verif, visualFindings);
-      setReport(publishedReport);
+      const newReport = await geminiService.publishJournal(selectedHyp, verification, visuals);
+      setReport(newReport);
+      addLog('Journal Editor', 'Formal scientific report published.', 'success');
 
       setStage(ResearchStage.KNOWLEDGE_INTEGRATION);
-      const updatedKnowledge = await geminiService.updateKnowledgeState(knowledge, publishedReport);
-      setKnowledge(updatedKnowledge);
-
+      const nextKnowledge = await geminiService.updateKnowledgeState(knowledge, newReport);
+      setKnowledge(nextKnowledge);
+      addLog('Learning Engine', 'Master Rocket Blueprint updated.', 'success');
+      
       setStage(ResearchStage.COMPLETED);
-      setIsLoading(false);
-
+      addLog('Orchestrator', `Cycle Complete: Integration successful.`, 'success');
+      
       if (isAutonomousRef.current) {
-         setTimeout(() => { if (isAutonomousRef.current) runCycle(); }, 4000);
+        setTimeout(runCycle, 5000);
       }
     } catch (error) {
       if (error instanceof Error && error.message.includes("Requested entity was not found")) {
+        addLog('System', 'API key invalid. Re-selection required.', 'error');
         setIsKeyRequired(true);
       } else {
-        addLog('System', `Loop Terminated: ${error instanceof Error ? error.message : 'Error'}`, 'error');
+        addLog('Orchestrator', `Fault Detected: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
       }
-      setIsLoading(false);
       setIsAutonomous(false);
+    } finally {
+      setIsLoading(false);
+      setStage(ResearchStage.IDLE);
     }
   };
 
-  const downloadReport = (rep: ResearchReport) => {
-    const content = `TITLE: ${rep.title}\nID: ${rep.id}\nTIMESTAMP: ${rep.timestamp}\n\nHYPOTHESIS:\n${rep.hypothesis.statement}\n\nFORMAL PROOF:\n${rep.formalProof}\n\nCONCLUSION:\n${rep.conclusion}`;
-    downloadFile(content, `${rep.id}.txt`, 'text/plain');
-  };
+  const downloadFullSystemState = useCallback(() => {
+    const content = JSON.stringify(knowledge, null, 2);
+    downloadFile(content, `mairis-prime-state-${Date.now()}.json`, 'application/json');
+    addLog('System', 'Global state trace exported.', 'success');
+  }, [knowledge, addLog]);
 
-  if (isKeyChecking) return <div className="h-screen bg-slate-950 flex items-center justify-center"><Loader2 className="w-10 h-10 text-blue-500 animate-spin" /></div>;
+  if (isKeyChecking) {
+    return (
+      <div className="h-screen bg-[#020617] flex items-center justify-center">
+        <Loader2 className="w-10 h-10 text-blue-500 animate-spin" />
+      </div>
+    );
+  }
 
   if (isKeyRequired) {
     return (
-      <div className="fixed inset-0 z-[2000] bg-[#020617] flex items-center justify-center p-6 backdrop-blur-3xl">
-        <div className="max-w-xl w-full bg-slate-900 border-2 border-slate-800 rounded-[3rem] p-16 text-center shadow-3xl">
-           <div className="w-24 h-24 bg-blue-600/10 rounded-[2rem] border-2 border-blue-600/20 flex items-center justify-center text-blue-400 mx-auto mb-10 animate-pulse">
-              <Lock className="w-10 h-10" />
-           </div>
-           <h2 className="text-4xl font-black uppercase tracking-tighter text-white mb-6">Mairis Prime Key Selection</h2>
-           <p className="text-slate-400 text-lg mb-12 font-light leading-relaxed">Please connect your project-linked <span className="text-blue-400 font-bold">API Key</span>. This system requires your own verified credentials to perform heavy computational research.</p>
-           <button 
-             onClick={handleOpenSelectKey}
-             className="w-full py-6 bg-blue-600 hover:bg-blue-500 text-white rounded-[2rem] font-black text-xs uppercase tracking-[0.3em] shadow-2xl transition-all active:scale-95 flex items-center justify-center gap-4"
-           >
-             <Key className="w-5 h-5" /> Select Project Key
-           </button>
-           <div className="mt-8 flex justify-center gap-6">
-              <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-[10px] font-black text-slate-500 uppercase tracking-widest hover:text-white transition-colors">Generate Key</a>
-              <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="text-[10px] font-black text-slate-500 uppercase tracking-widest hover:text-white transition-colors">Billing Settings</a>
-           </div>
+      <div className="min-h-screen bg-[#020617] flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-slate-900 border border-slate-800 p-12 rounded-[3rem] shadow-2xl text-center">
+          <div className="w-20 h-20 bg-blue-500/10 border border-blue-500/20 rounded-3xl flex items-center justify-center mx-auto mb-8">
+            <Lock className="w-10 h-10 text-blue-500" />
+          </div>
+          <h2 className="text-3xl font-black text-white mb-4 uppercase tracking-tighter">System Lock</h2>
+          <p className="text-slate-400 text-sm mb-10 leading-relaxed font-medium">
+            MAIRIS PRIME requires a verified API Key from a paid project.
+            Link your credentials to initialize the research core.
+          </p>
+          <button 
+            onClick={handleOpenSelectKey}
+            className="w-full py-5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black uppercase tracking-widest text-xs transition-all flex items-center justify-center gap-3 shadow-lg"
+          >
+            <Key className="w-4 h-4" />
+            Connect Project Key
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen bg-[#020617] text-slate-100 overflow-hidden font-inter">
+    <div className="flex h-screen bg-[#020617] text-slate-200 overflow-hidden font-sans">
       <Sidebar currentStage={stage} logs={logs} />
       
-      <main className="flex-1 overflow-y-auto relative custom-scrollbar flex flex-col bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]">
-        {/* Universal Navbar */}
-        <div className="bg-slate-950/90 border-b border-slate-900/50 p-4 px-8 flex items-center justify-between backdrop-blur-xl sticky top-0 z-[100] shadow-2xl">
-          <div className="flex bg-slate-900/80 p-1.5 rounded-2xl border border-slate-800 shadow-inner">
-             {[
-               { id: 'research', label: 'Laboratory', icon: Flask },
-               { id: 'design', label: 'Engine Core', icon: LayoutDashboard },
-               { id: 'archive', label: 'Archives', icon: BookOpen }
-             ].map((nav) => (
-               <button 
-                 key={nav.id}
-                 onClick={() => { setViewMode(nav.id as any); setReport(null); }}
-                 className={`flex items-center gap-3 px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === nav.id ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}
-               >
-                 <nav.icon className="w-3.5 h-3.5" /> {nav.label}
-               </button>
-             ))}
+      <main className="flex-1 flex flex-col min-w-0 bg-[radial-gradient(circle_at_top_right,rgba(30,58,138,0.05),transparent)]">
+        <header className="h-24 border-b border-slate-900/50 flex items-center justify-between px-10 bg-slate-950/50 backdrop-blur-xl sticky top-0 z-30">
+          <div className="flex items-center gap-6">
+             <div className="flex bg-slate-900/60 p-1 rounded-xl border border-slate-800">
+                {(['research', 'design', 'archive'] as const).map(mode => (
+                  <button 
+                    key={mode}
+                    onClick={() => setViewMode(mode)}
+                    className={`px-6 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === mode ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}
+                  >
+                    {mode === 'research' ? 'Laboratory' : mode === 'design' ? 'Engine Core' : 'Archives'}
+                  </button>
+                ))}
+             </div>
           </div>
-          
+
           <div className="flex items-center gap-4">
-             <button 
-               onClick={handleOpenSelectKey}
-               className="flex items-center gap-3 px-5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-400 hover:border-blue-500/30 transition-all shadow-md active:scale-95"
-               title="Update API Key"
-             >
-               <Key className="w-4 h-4" /> Change Key
-             </button>
+            <button 
+              onClick={handleOpenSelectKey}
+              className="px-6 py-3 bg-slate-900/50 border border-slate-800 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-400 hover:border-blue-500/30 transition-all flex items-center gap-3"
+            >
+              <RefreshCw className="w-4 h-4" /> Change Key
+            </button>
 
-             <div className="h-6 w-[1px] bg-slate-800 mx-2" />
+            <div className="w-[1px] h-6 bg-slate-800 mx-2" />
 
-             <button 
-               onClick={() => {
-                 const newState = !isAutonomous;
-                 setIsAutonomous(newState);
-                 if (newState && stage === ResearchStage.IDLE) runCycle();
-               }}
-               className={`flex items-center gap-3 px-8 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all shadow-lg active:scale-95 ${
-                 isAutonomous ? 'bg-orange-600 text-white animate-pulse' : 'bg-slate-900 text-slate-500 border border-slate-800 hover:text-white'
-               }`}
-             >
-               {isAutonomous ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-               {isAutonomous ? 'Loop Active' : 'Start Auto-Cycle'}
-             </button>
-
-             <button onClick={downloadFullSystemState} className="p-2.5 bg-emerald-600/10 text-emerald-500 hover:bg-emerald-600 hover:text-white rounded-xl border border-emerald-500/20 transition-all active:scale-90" title="State Export">
-                <HardDriveDownload className="w-4 h-4" /> 
-             </button>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setIsAutonomous(!isAutonomous)}
+                className={`p-3 rounded-xl border transition-all ${isAutonomous ? 'bg-emerald-500 text-white border-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.3)]' : 'bg-slate-900 text-slate-500 border-slate-800 hover:border-slate-700'}`}
+              >
+                {isAutonomous ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current" />}
+              </button>
+              
+              <button 
+                onClick={runCycle}
+                disabled={isLoading}
+                className="px-8 py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-xl font-black uppercase tracking-widest text-xs transition-all flex items-center gap-3 shadow-lg"
+              >
+                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+                {isLoading ? "Executing..." : "Manual Cycle"}
+              </button>
+            </div>
           </div>
-        </div>
+        </header>
 
-        <div className="flex-1 max-w-6xl mx-auto px-8 py-12 w-full relative">
-          {stage === ResearchStage.IDLE && viewMode === 'research' && !report && (
-            <div className="flex flex-col items-center justify-center py-20 text-center space-y-16 animate-in fade-in duration-1000">
-               <div className="relative group cursor-pointer" onClick={runCycle}>
-                 <div className="absolute inset-0 blur-[120px] bg-blue-500/10 rounded-full group-hover:bg-blue-500/30 transition-all" />
-                 <div className="p-16 bg-slate-900/60 border border-slate-800 rounded-[5rem] relative shadow-3xl">
-                    <BrainCircuit className="w-32 h-32 text-blue-400 group-hover:scale-110 transition-transform" />
-                 </div>
-               </div>
-               <div className="space-y-6">
-                 <h1 className="text-9xl font-black uppercase tracking-tighter leading-none italic">Mairis Prime</h1>
-                 <p className="text-2xl text-slate-400 font-light max-w-2xl mx-auto leading-relaxed">Accelerating aerospace engineering via <span className="text-blue-400 font-bold underline underline-offset-8">recursive mathematical synthesis</span>.</p>
-               </div>
-               <div className="flex gap-8">
-                 <button onClick={runCycle} className="px-16 py-8 bg-blue-600 hover:bg-blue-500 text-white rounded-[2rem] font-black text-xs uppercase tracking-[0.4em] shadow-2xl transition-all active:scale-95 flex items-center gap-6">
-                   <Power className="w-6 h-6" /> Start Laboratory
-                 </button>
-                 <button onClick={resetProgress} className="px-12 py-8 bg-slate-950 text-red-500 border border-slate-800 rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:border-red-600 transition-all">
-                   Factory Reset
-                 </button>
-               </div>
+        <div className="flex-1 overflow-y-auto p-10 custom-scrollbar relative">
+          {viewMode === 'research' && (
+            <div className="max-w-7xl mx-auto space-y-12">
+              {report ? (
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+                  <div className="flex items-start justify-between mb-8">
+                    <div>
+                      <div className="flex items-center gap-3 mb-3">
+                        {report.isBreakthrough && (
+                          <div className="flex items-center gap-2 px-3 py-1 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-full">
+                            <Zap className="w-3 h-3 fill-current" />
+                            <span className="text-[10px] font-black uppercase tracking-widest">Breakthrough Identified</span>
+                          </div>
+                        )}
+                        <span className="text-[10px] font-black text-blue-500 uppercase tracking-[0.2em]">{report.journalName}</span>
+                      </div>
+                      <h2 className="text-5xl font-black text-white tracking-tighter leading-[0.9] mb-4">{report.title}</h2>
+                      <div className="flex items-center gap-4 text-slate-500 text-xs font-mono">
+                         <span>{new Date(report.timestamp).toLocaleString()}</span>
+                         <span className="w-1 h-1 bg-slate-800 rounded-full" />
+                         <span className="text-emerald-400">Verified Proof</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-8">
+                    <div className="col-span-2 space-y-8">
+                      <div className="bg-slate-900/30 border border-slate-800/50 p-10 rounded-[2.5rem]">
+                        <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-500 mb-6 flex items-center gap-3">
+                           <FileText className="w-4 h-4" /> Formal Proof
+                        </h3>
+                        <div className="text-slate-300 font-serif leading-relaxed text-lg whitespace-pre-wrap">
+                           {report.formalProof}
+                        </div>
+                      </div>
+                      <DataChart data={report.chartData} />
+                    </div>
+
+                    <div className="space-y-8">
+                      <div className="bg-blue-600 p-8 rounded-[2.5rem]">
+                        <h3 className="text-sm font-black uppercase tracking-widest text-white mb-6">Verification Suite</h3>
+                        <div className="text-5xl font-black text-white mb-4">{((report.verificationSuite?.overallConfidence || 0) * 100).toFixed(1)}%</div>
+                        <p className="text-blue-100 text-xs uppercase tracking-widest font-bold">Physics Audit Confidence</p>
+                      </div>
+                      
+                      <div className="bg-slate-900/30 border border-slate-800/50 p-8 rounded-[2.5rem]">
+                        <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-500 mb-6">Simulation Traces</h3>
+                        <div className="space-y-4">
+                          {report.verificationSuite?.codeLabResults?.map((c, i) => (
+                            <div key={i} className="p-4 bg-slate-950/50 rounded-xl border border-slate-800 flex justify-between items-center">
+                               <div className="flex flex-col">
+                                  <span className="text-[10px] font-black text-white uppercase">{c.filename}</span>
+                                  <span className="text-[8px] text-slate-500 uppercase">{c.status}</span>
+                               </div>
+                               <button onClick={() => downloadFile(c.code, c.filename, 'text/plain')} className="text-blue-400 hover:text-blue-300">
+                                  <Download className="w-4 h-4" />
+                               </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : isLoading ? (
+                <div className="h-[60vh] flex flex-col items-center justify-center space-y-8">
+                  <div className="w-16 h-16 border-4 border-slate-800 border-t-blue-500 rounded-full animate-spin" />
+                  <h2 className="text-xl font-black text-white uppercase tracking-tighter animate-pulse">Deep Synthesis Underway...</h2>
+                </div>
+              ) : (
+                <div className="h-[60vh] flex flex-col items-center justify-center text-center space-y-8 opacity-40">
+                   <BrainCircuit className="w-24 h-24 text-slate-600" />
+                   <div className="max-w-md">
+                      <h2 className="text-3xl font-black text-white uppercase tracking-tighter mb-4">System Idle</h2>
+                      <p className="text-slate-500 text-sm leading-relaxed mb-8">Initiate discovery to begin engine optimization cycles.</p>
+                      <button onClick={runCycle} className="px-10 py-4 bg-blue-600 text-white rounded-xl font-black uppercase tracking-widest text-xs transition-all">
+                        Initialize Cycle
+                      </button>
+                   </div>
+                </div>
+              )}
             </div>
           )}
 
           {viewMode === 'design' && (
-            <div className="space-y-12 animate-in fade-in duration-500">
-               <header className="flex items-center justify-between border-b border-slate-900 pb-8">
-                  <h2 className="text-4xl font-black uppercase tracking-tighter flex items-center gap-6">
-                     <Layout className="w-10 h-10 text-blue-400" /> Propulsion Master Shell
-                  </h2>
-               </header>
-               <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 h-[600px]">
-                 <div className="lg:col-span-7 bg-slate-900/40 rounded-[3rem] border border-slate-800 p-12 relative overflow-hidden flex items-center justify-center">
-                    <div className="absolute inset-0 bg-blue-500/5 blur-[100px] rounded-full" />
-                    <div className="relative w-64 space-y-4">
-                       <div className="h-24 w-40 mx-auto bg-slate-800 border-4 border-slate-700 rounded-t-full shadow-2xl flex items-center justify-center">
-                          <Monitor className="w-10 h-10 text-slate-600" />
-                       </div>
-                       <div className="h-64 w-40 mx-auto bg-blue-600/10 border-x-4 border-blue-500/20 rounded-b-xl relative overflow-hidden">
-                          <div className="absolute bottom-0 left-0 right-0 bg-blue-500/40 transition-all duration-1000" style={{ height: `${knowledge.subsystems.fuel.status}%` }} />
-                       </div>
-                       <div className="h-32 w-56 mx-auto bg-slate-800 border-t-8 border-orange-500/40 border-x-[40px] border-x-transparent shadow-[0_-20px_50px_rgba(249,115,22,0.1)]" />
-                    </div>
-                 </div>
-                 <div className="lg:col-span-5 space-y-6 overflow-y-auto custom-scrollbar pr-2">
-                    {/* Fix: Explicitly cast Object.values to EngineSubsystem[] to resolve 'unknown' property access errors */}
-                    {(Object.values(knowledge.subsystems) as EngineSubsystem[]).map((sub) => (
-                      <div key={sub.name} className="p-6 bg-slate-950/60 border border-slate-800 rounded-3xl hover:border-blue-500/30 transition-all cursor-pointer group" onClick={() => setInspectingSub(sub)}>
-                        <div className="flex justify-between items-center mb-4">
-                           <span className="text-xs font-black uppercase tracking-widest text-slate-200">{sub.name}</span>
-                           <span className="text-sm font-mono text-blue-400 font-bold">{sub.status}%</span>
-                        </div>
-                        <div className="h-1.5 bg-slate-900 rounded-full overflow-hidden mb-4">
-                           <div className="h-full bg-blue-500 group-hover:bg-blue-400 transition-all duration-1000" style={{ width: `${sub.status}%` }} />
-                        </div>
-                        <p className="text-[10px] text-slate-500 font-light italic truncate">"{sub.specifications}"</p>
+            <div className="max-w-7xl mx-auto space-y-12">
+               <div className="flex items-end justify-between">
+                  <div>
+                    <h2 className="text-5xl font-black text-white tracking-tighter uppercase mb-4">Master Blueprint</h2>
+                    {/* FIXED: Explicitly cast Object.values to EngineSubsystem[] to fix arithmetic and 'unknown' property errors */}
+                    <p className="text-slate-500 text-sm font-mono">Integration State: {((Object.values(knowledge.subsystems) as EngineSubsystem[]).reduce((a, b) => a + b.status, 0) / 5).toFixed(1)}%</p>
+                  </div>
+                  <button onClick={downloadFullSystemState} className="px-6 py-3 bg-slate-900 border border-slate-800 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-3">
+                    <HardDriveDownload className="w-4 h-4" /> Export Blueprint
+                  </button>
+               </div>
+
+               <div className="grid grid-cols-5 gap-6">
+                  {/* FIXED: Explicitly cast Object.entries to fix property errors on 'unknown' type 'sub' */}
+                  {(Object.entries(knowledge.subsystems) as [string, EngineSubsystem][]).map(([key, sub]) => (
+                    <div key={key} onClick={() => setInspectingSub(sub)} className="group bg-slate-950/50 border border-slate-900 p-8 rounded-[2rem] hover:border-blue-500/50 transition-all cursor-pointer">
+                      <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">{sub.name}</div>
+                      <div className="text-2xl font-black text-white tracking-tighter mb-4">RDY {sub.status}%</div>
+                      <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden">
+                         <div className="h-full bg-blue-500" style={{ width: `${sub.status}%` }} />
                       </div>
-                    ))}
-                    <div className="p-8 bg-blue-600/5 border border-blue-500/20 rounded-[2.5rem] mt-4">
-                       <h3 className="text-[10px] font-black uppercase tracking-widest text-blue-400 mb-4">Integration Summary</h3>
-                       <p className="text-sm text-slate-400 font-light italic leading-relaxed">"{knowledge.masterDesignDoc}"</p>
                     </div>
-                 </div>
+                  ))}
+               </div>
+
+               <div className="grid grid-cols-2 gap-10 mt-12">
+                  <div className="bg-slate-900/30 border border-slate-800 p-10 rounded-[2.5rem]">
+                    <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-500 mb-8 flex items-center gap-3">Key Breakthroughs</h3>
+                    <div className="space-y-6">
+                      {knowledge.breakthroughs.map(b => (
+                        <div key={b.id} className="p-6 bg-slate-950/50 rounded-2xl border border-slate-800">
+                           <h4 className="text-sm font-black text-white uppercase mb-2">{b.title}</h4>
+                           <p className="text-xs text-slate-400 mb-4">{b.description}</p>
+                           <div className="text-[10px] font-mono text-blue-400 bg-blue-500/5 p-4 rounded-xl border border-blue-500/10 italic">
+                             {b.proofOfConcept}
+                           </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <div className="bg-slate-900/30 border border-slate-800 p-10 rounded-[2.5rem]">
+                    <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-500 mb-8 flex items-center gap-3">Engineering Manifesto</h3>
+                    <div className="p-8 bg-blue-500/5 rounded-2xl border border-blue-500/10 text-sm text-slate-300 font-serif leading-relaxed italic">
+                      "{knowledge.masterDesignDoc}"
+                    </div>
+                  </div>
                </div>
             </div>
           )}
 
           {viewMode === 'archive' && (
-            <div className="space-y-12 animate-in slide-in-from-bottom-12 duration-500 pb-20">
-               <header className="flex items-center justify-between border-b border-slate-900 pb-8">
-                  <h2 className="text-4xl font-black uppercase tracking-tighter flex items-center gap-6">
-                     <BookOpen className="w-10 h-10 text-emerald-400" /> Research Archives
-                  </h2>
-               </header>
-               {knowledge.pastReports.length === 0 ? (
-                 <div className="py-40 text-center opacity-30">
-                    <p className="text-2xl font-light italic">Laboratory archives are currently empty. Initiate research cycles to generate proofs.</p>
-                 </div>
-               ) : (
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {knowledge.pastReports.map((rep) => (
-                      <div key={rep.id} className="bg-slate-900/40 border border-slate-800 p-8 rounded-[3rem] hover:border-blue-500/40 transition-all group flex flex-col shadow-xl">
-                         <div className="flex justify-between items-start mb-6">
-                            <div className={`px-4 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border ${rep.isBreakthrough ? 'bg-orange-500/10 text-orange-400 border-orange-500/30' : 'bg-blue-500/10 text-blue-400 border-blue-500/30'}`}>
-                               {rep.isBreakthrough ? 'Critical Breakthrough' : 'Standard Proof'}
-                            </div>
-                            <button onClick={() => downloadReport(rep)} className="p-2 text-slate-500 hover:text-white transition-colors">
-                               <Download className="w-4 h-4" />
-                            </button>
+            <div className="max-w-7xl mx-auto">
+               <div className="flex items-end justify-between mb-12">
+                  <h2 className="text-5xl font-black text-white tracking-tighter uppercase">Research Library</h2>
+                  <button onClick={resetProgress} className="px-6 py-3 bg-red-500/10 text-red-500 border border-red-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-3">
+                    <AlertTriangle className="w-4 h-4" /> Wipe Local Storage
+                  </button>
+               </div>
+
+               <div className="grid grid-cols-1 gap-4">
+                  {knowledge.pastReports.map(r => (
+                    <div key={r.id} onClick={() => { setReport(r); setViewMode('research'); }} className="p-6 bg-slate-950/50 border border-slate-900 rounded-[1.5rem] hover:border-blue-500/50 transition-all cursor-pointer flex items-center justify-between group">
+                      <div className="flex items-center gap-6">
+                         <div className={`p-3 rounded-lg border ${r.isBreakthrough ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' : 'bg-slate-900 border-slate-800 text-slate-600'}`}>
+                            {r.isBreakthrough ? <Zap className="w-5 h-5 fill-current" /> : <FileText className="w-5 h-5" />}
                          </div>
-                         <h3 className="text-2xl font-black text-white leading-tight mb-4 group-hover:text-blue-200 transition-colors">{rep.title}</h3>
-                         <p className="text-[10px] text-slate-500 font-mono mb-8">Generated: {new Date(rep.timestamp).toLocaleString()}</p>
-                         <div className="mt-auto space-y-4">
-                            <div className="flex items-center gap-3 text-[10px] font-black uppercase text-slate-400 tracking-wider">
-                               <CheckCircle className="w-3.5 h-3.5 text-emerald-500" /> Confidence: {Math.round(rep.verificationSuite?.overallConfidence! * 100)}%
-                            </div>
-                            <button 
-                              onClick={() => { setReport(rep); setViewMode('research'); }}
-                              className="w-full py-4 bg-slate-950 border border-slate-800 rounded-2xl text-[10px] font-black uppercase tracking-widest text-blue-500 hover:bg-blue-600 hover:text-white transition-all shadow-md"
-                            >
-                               Open Full Report
-                            </button>
+                         <div>
+                            <div className="text-[9px] font-black text-blue-500 uppercase tracking-widest mb-1">{r.journalName}</div>
+                            <h4 className="text-lg font-black text-white uppercase tracking-tight group-hover:text-blue-200">{r.title}</h4>
                          </div>
                       </div>
-                    ))}
-                 </div>
-               )}
-            </div>
-          )}
-
-          {viewMode === 'research' && report && (
-            <div className="animate-in fade-in duration-1000">
-               <button onClick={() => setReport(null)} className="mb-8 flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-white transition-all">
-                  <ArrowLeft className="w-4 h-4" /> Return to Dashboard
-               </button>
-               
-               <div className="bg-white text-slate-900 p-16 md:p-32 rounded-[6rem] shadow-4xl font-serif border border-slate-200 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none">
-                     <Settings className="w-64 h-64 rotate-45" />
-                  </div>
-                  
-                  <header className="border-b-[12px] border-slate-900 pb-16 mb-24 flex flex-col lg:flex-row justify-between items-end gap-12 relative z-10">
-                     <div className="space-y-6">
-                        <div className="flex items-center gap-4 text-blue-700 font-sans font-black uppercase text-[10px] tracking-[0.4em]">
-                           <Milestone className="w-8 h-8" /> Mairis Prime Verified Proof Package
-                        </div>
-                        <h1 className="text-7xl font-black uppercase leading-[0.9] tracking-tighter text-slate-900 italic max-w-4xl">{report.title}</h1>
-                     </div>
-                     <div className="bg-slate-900 text-white p-8 rounded-[3rem] text-center min-w-[200px] shadow-2xl">
-                        <div className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-2">Audit Status</div>
-                        <div className="text-5xl font-black flex items-center justify-center gap-3">
-                           {Math.round(report.verificationSuite?.overallConfidence! * 100)}% <CheckCircle className="w-10 h-10 text-emerald-400" />
-                        </div>
-                     </div>
-                  </header>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-24 relative z-10">
-                     <div className="lg:col-span-4 space-y-16 font-sans">
-                        <div className="bg-slate-50 p-10 rounded-[3.5rem] border border-slate-200 shadow-inner space-y-8">
-                           <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 flex items-center gap-3">
-                              <Box className="w-4 h-4 text-emerald-600" /> Proof Derivation
-                           </h3>
-                           <div className="text-sm leading-relaxed text-slate-600 font-mono bg-white p-6 rounded-3xl border border-slate-200 shadow-sm whitespace-pre-wrap italic">
-                             {report.formalProof}
-                           </div>
-                        </div>
-                        
-                        <div className="space-y-8">
-                           <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 flex items-center gap-3">
-                              <TrendingUp className="w-4 h-4 text-orange-500" /> Delta Verification
-                           </h4>
-                           <DataChart data={report.chartData} />
-                        </div>
-                     </div>
-
-                     <div className="lg:col-span-8 space-y-20">
-                        <section className="space-y-10">
-                           <h3 className="text-5xl font-black uppercase tracking-tight text-slate-900 flex items-center gap-8 font-sans">
-                              <span className="w-16 h-2 bg-slate-900 rounded-full" /> Methodology
-                           </h3>
-                           <div className="text-2xl leading-relaxed text-slate-700 font-light italic border-l-8 border-slate-100 pl-10">
-                             {report.methodology}
-                           </div>
-                        </section>
-
-                        <section className="bg-slate-50 p-12 rounded-[5rem] border border-slate-100 space-y-10">
-                           <h3 className="text-xl font-black font-sans uppercase tracking-[0.2em] flex items-center gap-4 text-slate-500">
-                              <Cpu className="w-6 h-6 text-blue-500" /> Simulation Lab Trace
-                           </h3>
-                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                              {report.verificationSuite?.codeLabResults?.map((c, idx) => (
-                                <div key={idx} className="p-6 bg-white border border-slate-200 rounded-3xl flex items-center justify-between group/code hover:border-blue-500 transition-all shadow-sm">
-                                   <div className="flex items-center gap-4">
-                                      <FileCode className="w-8 h-8 text-slate-200 group-hover/code:text-blue-100 transition-colors" />
-                                      <div>
-                                         <div className="text-[10px] font-black text-slate-900 uppercase tracking-wider">{c.filename}</div>
-                                         <div className="text-[9px] text-slate-400 font-mono uppercase">{c.status}</div>
-                                      </div>
-                                   </div>
-                                   <button onClick={() => downloadFile(c.code, c.filename, 'text/plain')} className="text-slate-300 hover:text-blue-600 p-2"><Download className="w-4 h-4" /></button>
-                                </div>
-                              ))}
-                           </div>
-                        </section>
-
-                        <section className="space-y-10">
-                           <h3 className="text-5xl font-black uppercase tracking-tight text-slate-900 flex items-center gap-8 font-sans">
-                              <span className="w-16 h-2 bg-slate-900 rounded-full" /> Logical Conclusion
-                           </h3>
-                           <div className="text-3xl leading-relaxed text-slate-800 font-light bg-slate-50 p-12 rounded-[4rem] italic border border-slate-200/50 shadow-inner">
-                             {report.conclusion}
-                           </div>
-                        </section>
-                        
-                        <footer className="pt-12 border-t border-slate-100 flex justify-end">
-                           <button 
-                             onClick={() => downloadReport(report)}
-                             className="px-12 py-5 bg-slate-900 text-white rounded-full font-black text-[10px] uppercase tracking-widest shadow-2xl transition-all active:scale-95 flex items-center gap-4"
-                           >
-                             <HardDriveDownload className="w-5 h-5" /> Export Artifacts
-                           </button>
-                        </footer>
-                     </div>
-                  </div>
+                      <div className="text-right">
+                         <div className="text-[10px] font-black text-white">{((r.verificationSuite?.overallConfidence || 0) * 100).toFixed(0)}%</div>
+                         <div className="text-[8px] text-slate-600 uppercase">Confidence</div>
+                      </div>
+                    </div>
+                  ))}
                </div>
             </div>
           )}
         </div>
       </main>
 
-      {/* Autonomous Loop HUD */}
-      {isAutonomous && (
-         <div className="fixed bottom-12 left-1/2 -translate-x-1/2 z-[200] bg-slate-950/98 backdrop-blur-3xl px-12 py-8 rounded-[4rem] border-2 border-orange-500/40 shadow-4xl flex items-center gap-12 scale-110">
-            <div className="flex items-center gap-8">
-               <div className="relative">
-                 <div className="w-14 h-14 border-[6px] border-orange-500/10 border-t-orange-500 rounded-full animate-spin" />
-                 <div className="absolute inset-0 flex items-center justify-center">
-                    <Database className="w-6 h-6 text-orange-500 animate-pulse" />
-                 </div>
-               </div>
-               <div className="flex flex-col">
-                 <span className="text-xl font-black text-white uppercase tracking-[0.2em] italic">Orchestrator Cycle</span>
-                 <span className="text-[9px] text-orange-500 font-black uppercase tracking-[0.5em]">{stage.replace('_', ' ')}...</span>
-               </div>
-            </div>
-            <button onClick={() => setIsAutonomous(false)} className="p-5 bg-orange-600/10 text-orange-500 hover:bg-orange-600 hover:text-white rounded-[2rem] border-2 border-orange-500/20 shadow-xl transition-all active:scale-95">
-              <Pause className="w-6 h-6" />
-            </button>
-         </div>
-      )}
-
-      {/* Subsystem Detail Modal */}
       {inspectingSub && (
-        <div className="fixed inset-0 z-[150] bg-slate-950/80 backdrop-blur-2xl flex items-center justify-center p-8 animate-in zoom-in duration-300">
-           <div className="max-w-4xl w-full bg-slate-900 border-2 border-slate-800 rounded-[4rem] p-16 relative shadow-4xl overflow-hidden">
-              <div className="absolute -top-32 -right-32 w-80 h-80 bg-blue-500/5 rounded-full blur-[120px]" />
-              <button onClick={() => setInspectingSub(null)} className="absolute top-10 right-10 p-4 bg-slate-950 border border-slate-800 rounded-full text-slate-500 hover:text-white transition-all">
-                <RotateCcw className="w-6 h-6" />
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[100] flex items-center justify-center p-10">
+           <div className="max-w-2xl w-full bg-slate-900 border border-slate-800 rounded-[3rem] p-12 relative overflow-hidden">
+              <button onClick={() => setInspectingSub(null)} className="absolute top-10 right-10 p-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-500 hover:text-white transition-all">
+                <ArrowLeft className="w-5 h-5" />
               </button>
-              <div className="flex items-center gap-10 mb-12">
-                 <div className="w-24 h-24 rounded-3xl bg-blue-600/10 border-2 border-blue-600/20 flex items-center justify-center text-blue-400 shadow-2xl">
-                    <Layers className="w-12 h-12" />
-                 </div>
+              <div className="flex items-center gap-4 mb-8">
+                 <Cpu className="w-10 h-10 text-blue-500" />
+                 <h3 className="text-3xl font-black text-white uppercase tracking-tighter">{inspectingSub.name}</h3>
+              </div>
+              <div className="grid grid-cols-2 gap-8">
                  <div>
-                    <div className="text-[10px] font-black uppercase text-blue-500 tracking-[0.4em] mb-2">Core Component</div>
-                    <h2 className="text-5xl font-black uppercase tracking-tighter text-white">{inspectingSub.name}</h2>
-                    <div className="text-2xl font-black font-mono text-emerald-400 mt-2">{inspectingSub.status}% Operational readiness</div>
+                    <div className="text-5xl font-black text-white tracking-tighter mb-2">{inspectingSub.status}%</div>
+                    <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Functional Readiness</div>
+                 </div>
+                 <div className="p-6 bg-slate-950/50 border border-slate-800 rounded-2xl text-xs font-mono text-blue-100 leading-relaxed italic">
+                    {inspectingSub.specifications}
                  </div>
               </div>
-              <div className="bg-slate-950/50 p-10 rounded-3xl border border-slate-800 mb-12">
-                 <h3 className="text-[9px] font-black uppercase tracking-[0.6em] text-slate-500 mb-6">Technical Manifest</h3>
-                 <p className="text-2xl text-slate-300 font-light italic leading-relaxed">"{inspectingSub.specifications}"</p>
-              </div>
-              <button 
-                onClick={() => { setPrioritySubsystem(inspectingSub.name.toLowerCase().split(' ')[0]); setInspectingSub(null); setViewMode('research'); runCycle(); }}
-                className="w-full py-6 bg-blue-600 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-[0.4em] shadow-xl hover:bg-blue-500 transition-all active:scale-95"
-              >
-                Launch Focused Research Loop
-              </button>
            </div>
         </div>
       )}
