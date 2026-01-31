@@ -1,0 +1,5 @@
+{
+  "name": "Astra Research AI",
+  "description": "An automated scientific research generation system specializing in rocket engineering and aerospace propulsion. It utilizes a 7-agent architecture for literature synthesis, hypothesis generation, and multimodal visual analysis.",
+  "requestFramePermissions": []
+}
