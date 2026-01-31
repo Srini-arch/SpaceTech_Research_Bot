@@ -57,7 +57,9 @@ import {
   Key,
   ExternalLink,
   Lock,
-  Loader2
+  Loader2,
+  BookOpen,
+  ArrowLeft
 } from 'lucide-react';
 
 const INITIAL_KNOWLEDGE: RocketKnowledgeState = {
@@ -75,7 +77,7 @@ const INITIAL_KNOWLEDGE: RocketKnowledgeState = {
   pastReports: []
 };
 
-const STORAGE_KEY = 'mairis_prime_blueprint_v1';
+const STORAGE_KEY = 'mairis_prime_blueprint_v2';
 
 const downloadFile = (content: string, filename: string, contentType: string) => {
   const blob = new Blob([content], { type: contentType });
@@ -161,7 +163,7 @@ const App: React.FC = () => {
   const [logs, setLogs] = useState<AgentLog[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isAutonomous, setIsAutonomous] = useState(false);
-  const [viewMode, setViewMode] = useState<'research' | 'design' | 'breakthroughs'>('research');
+  const [viewMode, setViewMode] = useState<'research' | 'design' | 'archive'>('research');
   const [prioritySubsystem, setPrioritySubsystem] = useState<string | null>(null);
   const [inspectingSub, setInspectingSub] = useState<EngineSubsystem | null>(null);
   
@@ -175,13 +177,12 @@ const App: React.FC = () => {
   // Check for API Key on mount
   useEffect(() => {
     const checkKey = async () => {
-      // @ts-ignore: aistudio is globally defined in the environment
+      // @ts-ignore
       if (window.aistudio) {
         // @ts-ignore
         const hasKey = await window.aistudio.hasSelectedApiKey();
         setIsKeyRequired(!hasKey);
       } else {
-        // Fallback for non-aistudio environments (standard deployment with env var)
         setIsKeyRequired(false);
       }
       setIsKeyChecking(false);
@@ -212,7 +213,7 @@ const App: React.FC = () => {
   };
 
   const resetProgress = useCallback(() => {
-    if (window.confirm('WARNING: CORE RESET. This will permanently wipe all verified breakthroughs and mathematical proofs from Mairis Prime. Proceed?')) {
+    if (window.confirm('CRITICAL ACTION: Resetting Mairis Prime will wipe all engineering reports and readiness progress. Do you wish to proceed?')) {
       setKnowledge(INITIAL_KNOWLEDGE);
       localStorage.removeItem(STORAGE_KEY);
       setStage(ResearchStage.IDLE);
@@ -221,7 +222,7 @@ const App: React.FC = () => {
       setHypotheses([]);
       setIsAutonomous(false);
       setIsLoading(false);
-      addLog('System', 'CORE DATA PURGED. SYSTEM RESET TO GENESIS.', 'warning');
+      addLog('System', 'CORE BLUEPRINT PURGED. ARCHIVE RESET.', 'warning');
     }
   }, [addLog]);
 
@@ -229,7 +230,7 @@ const App: React.FC = () => {
     setIsLoading(false);
     setIsAutonomous(false);
     setStage(ResearchStage.IDLE);
-    addLog('Orchestrator', 'Research sequence halted manually.', 'warning');
+    addLog('Orchestrator', 'Autonomous sequence halted.', 'warning');
   }, [addLog]);
 
   const calculatePriority = useCallback(() => {
@@ -247,14 +248,14 @@ const App: React.FC = () => {
     setHypotheses([]);
 
     const target = calculatePriority();
-    addLog('Orchestrator', `Cycle Initiated. Focal Subsystem: ${target.toUpperCase()}`, 'info');
+    addLog('Orchestrator', `Cycle Initiated: Target ${target.toUpperCase()}`, 'info');
 
     try {
       setStage(ResearchStage.TOPIC_DISCOVERY);
       await new Promise(r => setTimeout(r, 1200));
       const discoveredTopics = await geminiService.discoverTopics(MOCK_PAPERS, knowledge, target);
       setTopics(discoveredTopics);
-      addLog('Discovery Engine', `Analysis complete. Gap mapping successful.`, 'success');
+      addLog('Discovery Engine', `Research gaps identified. Novelty verified.`, 'success');
 
       setStage(ResearchStage.LITERATURE_SYNTHESIS);
       await geminiService.synthesizeLiterature(MOCK_PAPERS);
@@ -275,7 +276,7 @@ const App: React.FC = () => {
       }
     } catch (error) {
       if (error instanceof Error && error.message.includes("Requested entity was not found")) {
-        addLog('System', 'API Authentication Fault. Re-selection required.', 'error');
+        addLog('System', 'API Key expired or project not found. Re-selection required.', 'error');
         setIsKeyRequired(true);
       } else {
         addLog('Orchestrator', `Fault: ${error instanceof Error ? error.message : 'Unknown'}`, 'error');
@@ -310,7 +311,12 @@ const App: React.FC = () => {
          setTimeout(() => { if (isAutonomousRef.current) runCycle(); }, 5000);
       }
     } catch (error) {
-      addLog('System', `Publication Failed: ${error instanceof Error ? error.message : 'Internal error'}`, 'error');
+      if (error instanceof Error && error.message.includes("Requested entity was not found")) {
+        addLog('System', 'API Key re-authentication required.', 'error');
+        setIsKeyRequired(true);
+      } else {
+        addLog('System', `Publication error: ${error instanceof Error ? error.message : 'Internal fault'}`, 'error');
+      }
       setIsLoading(false);
       setIsAutonomous(false);
     }
@@ -318,47 +324,41 @@ const App: React.FC = () => {
 
   const downloadReport = (rep: ResearchReport) => {
     const content = `
+MAIRIS PRIME RESEARCH REPORT
+ID: ${rep.id}
 TITLE: ${rep.title}
 JOURNAL: ${rep.journalName}
 TIMESTAMP: ${rep.timestamp}
 
-HYPOTHESIS:
+--- HYPOTHESIS ---
 ${rep.hypothesis.statement}
 
-FORMAL PROOF & LOGICAL DERIVATION:
+--- FORMAL MATHEMATICAL PROOF ---
 ${rep.formalProof}
 
-LITERATURE REVIEW:
+--- LITERATURE CONTEXT ---
 ${rep.literatureReview}
 
-METHODOLOGY:
+--- METHODOLOGY ---
 ${rep.methodology}
 
-RESULTS PREVIEW:
-${rep.resultsPreview}
+--- VERIFICATION METRICS ---
+Physics Audit Confidence: ${Math.round(rep.verificationSuite?.overallConfidence! * 100)}%
 
-CONCLUSION:
-${rep.conclusion}
-
-VERIFICATION CONFIDENCE: ${Math.round(rep.verificationSuite?.overallConfidence! * 100)}%
-
---- SOURCE CODE LAB RESULTS ---
+--- SIMULATION DATA ---
 ${rep.verificationSuite?.codeLabResults?.map(c => `
-FILE: ${c.filename} (${c.language})
+FILE: ${c.filename}
 STATUS: ${c.status}
-CODE:
-${c.code}
-RESULTS:
-${c.testResults}
-`).join('\n') || 'No simulation code attached.'}
+RESULTS: ${c.testResults}
+`).join('\n')}
     `.trim();
-    downloadFile(content, `${rep.title.toLowerCase().replace(/ /g, '_')}_technical_proof.txt`, 'text/plain');
+    downloadFile(content, `${rep.title.toLowerCase().replace(/ /g, '_')}_proof.txt`, 'text/plain');
   };
 
   const downloadFullSystemState = () => {
     const content = JSON.stringify(knowledge, null, 2);
-    downloadFile(content, `mairis_prime_emergency_state_dump_${Date.now()}.json`, 'application/json');
-    addLog('System', 'EMERGENCY DATA RECOVERY COMPLETED. MASTER JSON GENERATED.', 'success');
+    downloadFile(content, `mairis_prime_blueprint_${Date.now()}.json`, 'application/json');
+    addLog('System', 'MASTER DATA EXPORTED.', 'success');
   };
 
   const EngineSchematic = () => {
@@ -366,150 +366,94 @@ ${c.testResults}
     const avg = Math.round((s.propulsion.status + s.thermal.status + s.structural.status + s.avionics.status + s.fuel.status) / 5);
     
     return (
-      <div className="relative w-full h-[650px] bg-slate-900/60 rounded-[4rem] border border-slate-800/50 flex flex-col lg:flex-row items-center justify-center p-12 overflow-hidden shadow-3xl group/engine">
-        <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#334155 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
+      <div className="relative w-full h-[600px] bg-slate-900/40 rounded-[4rem] border border-slate-800/50 flex flex-col lg:flex-row items-center justify-center p-12 overflow-hidden shadow-3xl group/engine">
+        <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#334155 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
         
         <div className="relative w-full lg:w-1/2 h-full flex flex-col items-center justify-center">
-           <div className="absolute inset-0 bg-blue-500/5 blur-[150px] rounded-full" />
+           <div className="absolute inset-0 bg-blue-500/5 blur-[120px] rounded-full" />
            
            <div className="relative flex flex-col items-center w-64 space-y-1">
               <div 
-                className={`relative z-10 cursor-pointer transition-all hover:scale-110 active:scale-95 ${prioritySubsystem === 'avionics' ? 'brightness-125' : ''}`}
+                className={`relative z-10 cursor-pointer transition-all hover:scale-110 ${prioritySubsystem === 'avionics' ? 'brightness-125' : ''}`}
                 onClick={() => setPrioritySubsystem('avionics')}
               >
-                 <div className={`w-0 h-0 border-l-[65px] border-l-transparent border-r-[65px] border-r-transparent border-b-[100px] ${s.avionics.status > 50 ? 'border-b-blue-400 shadow-[0_20px_40px_rgba(59,130,246,0.3)]' : 'border-b-slate-700'} transition-all duration-1000`} />
-                 <div className={`absolute -top-14 left-1/2 -translate-x-1/2 px-5 py-2 bg-slate-950 border ${prioritySubsystem === 'avionics' ? 'border-blue-500 shadow-[0_0_20px_blue]' : 'border-slate-800'} rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2 whitespace-nowrap`}>
-                    <Monitor className="w-3.5 h-3.5" /> Avionics: {s.avionics.status}%
+                 <div className={`w-0 h-0 border-l-[60px] border-l-transparent border-r-[60px] border-r-transparent border-b-[90px] ${s.avionics.status > 50 ? 'border-b-blue-400 shadow-[0_20px_40px_rgba(59,130,246,0.3)]' : 'border-b-slate-700'} transition-all duration-1000`} />
+                 <div className="absolute -top-12 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-slate-950 border border-slate-800 rounded-full text-[9px] font-black uppercase tracking-widest whitespace-nowrap">
+                    AVIONICS: {s.avionics.status}%
                  </div>
               </div>
 
-              <div 
-                className="relative w-40 flex flex-col items-center cursor-pointer transition-all hover:scale-105 active:scale-95"
-                onClick={() => setPrioritySubsystem('structural')}
-              >
-                 <div className={`w-40 h-72 border-x-8 ${s.fuel.status > 50 ? 'border-blue-500 bg-blue-500/10' : 'border-slate-800 bg-slate-900/50'} transition-all duration-1000 relative overflow-hidden rounded-xl`}>
-                    <div className="absolute bottom-0 left-0 right-0 bg-blue-600/40 transition-all duration-1000" style={{ height: `${s.fuel.status}%` }} />
-                 </div>
-                 <div className={`absolute top-1/2 -left-40 -translate-y-1/2 px-5 py-2 bg-slate-950 border ${prioritySubsystem === 'structural' ? 'border-emerald-500 shadow-[0_0_20px_emerald]' : 'border-slate-800'} rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2 whitespace-nowrap`}>
-                    <Shield className="w-3.5 h-3.5" /> Structural: {s.structural.status}%
-                 </div>
+              <div className="relative w-36 h-64 border-x-4 border-slate-800 bg-slate-900/50 transition-all duration-1000 relative overflow-hidden rounded-lg">
+                <div className="absolute bottom-0 left-0 right-0 bg-blue-600/30 transition-all duration-1000" style={{ height: `${s.fuel.status}%` }} />
+                <div className="absolute inset-0 flex items-center justify-center text-[9px] font-black uppercase text-slate-500 tracking-tighter rotate-90">Fuel Cell</div>
               </div>
 
               <div 
-                className="relative cursor-pointer transition-all hover:scale-110 active:scale-95"
+                className="relative cursor-pointer transition-all hover:scale-110"
                 onClick={() => setPrioritySubsystem('propulsion')}
               >
-                 <div className={`w-60 h-48 border-t-[120px] ${s.propulsion.status > 50 ? 'border-t-orange-500 shadow-[0_-40px_80px_rgba(249,115,22,0.4)]' : 'border-t-slate-800'} border-x-[60px] border-x-transparent transition-all duration-1000 relative`}>
-                    {s.propulsion.status > 80 && (
-                      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-10 h-[300px] bg-gradient-to-b from-orange-400/80 to-transparent blur-3xl animate-pulse" />
-                    )}
-                 </div>
-                 <div className={`absolute -bottom-14 left-1/2 -translate-x-1/2 px-5 py-2 bg-slate-950 border ${prioritySubsystem === 'propulsion' ? 'border-orange-500 shadow-[0_0_20px_orange]' : 'border-slate-800'} rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2 whitespace-nowrap`}>
-                    <Gauge className="w-3.5 h-3.5" /> Propulsion: {s.propulsion.status}%
+                 <div className={`w-52 h-40 border-t-[100px] ${s.propulsion.status > 50 ? 'border-t-orange-500 shadow-[0_-30px_60px_rgba(249,115,22,0.3)]' : 'border-t-slate-800'} border-x-[50px] border-x-transparent transition-all duration-1000 relative`} />
+                 <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-slate-950 border border-slate-800 rounded-full text-[9px] font-black uppercase tracking-widest whitespace-nowrap">
+                    PROPULSION: {s.propulsion.status}%
                  </div>
               </div>
            </div>
         </div>
 
-        <div className="w-full lg:w-1/2 h-full flex flex-col justify-center space-y-12 pl-12 border-l border-slate-800/50 relative">
-           <div className="absolute top-0 left-12 p-8 bg-slate-950/90 backdrop-blur-xl rounded-[3rem] border border-slate-800 shadow-2xl flex items-center gap-6 translate-y-[-50%]">
-              <div className="w-16 h-16 rounded-[1.5rem] bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
-                <Power className="w-8 h-8 animate-pulse" />
+        <div className="w-full lg:w-1/2 h-full flex flex-col justify-center space-y-8 pl-12 border-l border-slate-800/30 relative">
+           <div className="flex items-center gap-6 mb-8">
+              <div className="w-14 h-14 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+                <Power className="w-7 h-7 animate-pulse" />
               </div>
               <div>
-                <div className="text-[11px] font-black uppercase text-slate-500 tracking-[0.4em]">Engine Viability</div>
-                <div className="text-5xl font-black text-white font-mono tracking-tighter">{avg}%</div>
+                <div className="text-[10px] font-black uppercase text-slate-500 tracking-[0.4em]">System Integrity</div>
+                <div className="text-4xl font-black text-white font-mono">{avg}%</div>
               </div>
            </div>
 
-           <div className="space-y-10">
-              <div className="flex items-center justify-between pr-10">
-                <h3 className="text-xs font-black uppercase tracking-[0.5em] text-slate-600 mb-12 flex items-center gap-4">
-                   <Terminal className="w-6 h-6" /> System Configuration
-                </h3>
-              </div>
-              
-              <div className="grid grid-cols-1 gap-6 max-h-[450px] overflow-y-auto pr-6 custom-scrollbar">
-                {(Object.values(knowledge.subsystems) as EngineSubsystem[]).map((sub) => (
-                  <div 
-                    key={sub.name} 
-                    className={`group/sub p-6 bg-slate-950/80 border ${prioritySubsystem === sub.name.toLowerCase().split(' ')[0] ? 'border-blue-500/50 bg-blue-500/10' : 'border-slate-800/60'} rounded-[2.5rem] transition-all hover:translate-x-4 cursor-pointer relative overflow-hidden`}
-                    onClick={() => setInspectingSub(sub)}
-                  >
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 blur-3xl rounded-full" />
-                    <div className="flex justify-between items-center mb-4 relative z-10">
-                      <div className="flex items-center gap-4">
-                        <div className={`w-3 h-3 rounded-full ${sub.status > 75 ? 'bg-emerald-500 shadow-[0_0_10px_emerald]' : sub.status > 30 ? 'bg-blue-500 shadow-[0_0_10px_blue]' : 'bg-red-500 shadow-[0_0_10px_red]'}`} />
-                        <span className="text-sm font-black uppercase text-slate-200 tracking-wider">{sub.name}</span>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <span className="text-sm font-mono text-slate-500 font-bold">{sub.status}%</span>
-                        <Eye className="w-4 h-4 text-slate-700 group-hover/sub:text-blue-400 transition-colors" />
-                      </div>
-                    </div>
-                    <div className="h-1.5 bg-slate-900 rounded-full overflow-hidden mb-3 relative z-10">
-                      <div className={`h-full ${sub.status > 75 ? 'bg-emerald-500' : 'bg-blue-600'} transition-all duration-1000`} style={{ width: `${sub.status}%` }} />
-                    </div>
+           <div className="space-y-4 max-h-[350px] overflow-y-auto pr-4 custom-scrollbar">
+              {(Object.values(knowledge.subsystems) as EngineSubsystem[]).map((sub) => (
+                <div 
+                  key={sub.name} 
+                  className={`p-5 bg-slate-950/60 border ${prioritySubsystem === sub.name.toLowerCase().split(' ')[0] ? 'border-blue-500/40 bg-blue-500/5' : 'border-slate-800/40'} rounded-3xl transition-all hover:translate-x-2 cursor-pointer relative overflow-hidden`}
+                  onClick={() => setInspectingSub(sub)}
+                >
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-xs font-black uppercase text-slate-300 tracking-wider">{sub.name}</span>
+                    <span className="text-xs font-mono text-slate-500">{sub.status}%</span>
                   </div>
-                ))}
-              </div>
+                  <div className="h-1 bg-slate-900 rounded-full overflow-hidden">
+                    <div className="h-full bg-blue-600 transition-all duration-1000" style={{ width: `${sub.status}%` }} />
+                  </div>
+                </div>
+              ))}
            </div>
         </div>
       </div>
     );
   };
 
-  // API Key Gateway
-  if (isKeyChecking) {
-    return (
-      <div className="h-screen w-full bg-[#020617] flex items-center justify-center">
-        <Loader2 className="w-12 h-12 text-blue-500 animate-spin" />
-      </div>
-    );
-  }
+  if (isKeyChecking) return <div className="h-screen w-full bg-[#020617] flex items-center justify-center"><Loader2 className="w-10 h-10 text-blue-500 animate-spin" /></div>;
 
   if (isKeyRequired) {
     return (
-      <div className="fixed inset-0 z-[1000] bg-slate-950 flex items-center justify-center p-6 backdrop-blur-3xl">
-        <div className="absolute inset-0 bg-blue-500/5 blur-[120px] rounded-full pointer-events-none" />
-        <div className="w-full max-w-2xl bg-slate-900/90 border-2 border-slate-800 rounded-[5rem] p-16 md:p-24 shadow-[0_100px_200px_rgba(0,0,0,0.9)] relative overflow-hidden text-center animate-in fade-in zoom-in-95 duration-700">
-           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-1 bg-gradient-to-r from-transparent via-blue-500 to-transparent" />
-           
-           <div className="w-32 h-32 bg-blue-600/10 rounded-[3rem] border-2 border-blue-600/20 flex items-center justify-center text-blue-400 mx-auto mb-16 shadow-2xl animate-pulse">
-              <Lock className="w-14 h-14" />
+      <div className="fixed inset-0 z-[1000] bg-slate-950 flex items-center justify-center p-6">
+        <div className="w-full max-w-xl bg-slate-900 border border-slate-800 rounded-[3rem] p-12 text-center relative overflow-hidden">
+           <div className="w-20 h-20 bg-blue-600/10 rounded-3xl border border-blue-600/20 flex items-center justify-center text-blue-400 mx-auto mb-10">
+              <Key className="w-10 h-10" />
            </div>
-           
-           <h2 className="text-6xl font-black uppercase tracking-tighter text-white mb-8">Access Mairis Prime</h2>
-           <p className="text-2xl text-slate-400 font-light leading-relaxed mb-16 px-4">
-              To proceed with high-fidelity aerospace simulations and mathematical verification, please connect your <span className="text-blue-400 font-bold">Paid Gemini API Key</span>.
-           </p>
-           
-           <div className="space-y-8">
+           <h2 className="text-4xl font-black uppercase tracking-tighter text-white mb-6">Mairis Prime Authenticator</h2>
+           <p className="text-lg text-slate-400 font-light mb-12">Connect your <span className="text-blue-400 font-bold">Paid Gemini API Key</span> to proceed with autonomous aerospace engineering simulations.</p>
+           <div className="space-y-6">
               <button 
                 onClick={handleOpenSelectKey}
-                className="w-full py-8 bg-blue-600 hover:bg-blue-500 text-white rounded-[3rem] font-black text-base uppercase tracking-[0.4em] shadow-[0_25px_60px_rgba(37,99,235,0.4)] transition-all active:scale-95 flex items-center justify-center gap-6"
+                className="w-full py-6 bg-blue-600 hover:bg-blue-500 text-white rounded-3xl font-black text-xs uppercase tracking-[0.3em] shadow-xl transition-all"
               >
-                <Key className="w-6 h-6" /> Connect API Key
+                Connect Credentials
               </button>
-              
-              <div className="flex flex-col md:flex-row items-center justify-center gap-10 pt-4">
-                 <a 
-                   href="https://aistudio.google.com/app/apikey" 
-                   target="_blank" 
-                   rel="noopener noreferrer"
-                   className="flex items-center gap-3 text-slate-500 hover:text-white transition-colors text-[11px] font-black uppercase tracking-widest group"
-                 >
-                   Get Key from Google <ExternalLink className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                 </a>
-                 <div className="hidden md:block w-1.5 h-1.5 bg-slate-800 rounded-full" />
-                 <a 
-                   href="https://ai.google.dev/gemini-api/docs/billing" 
-                   target="_blank" 
-                   rel="noopener noreferrer"
-                   className="flex items-center gap-3 text-slate-500 hover:text-white transition-colors text-[11px] font-black uppercase tracking-widest group"
-                 >
-                   Billing Documentation <Shield className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                 </a>
+              <div className="flex justify-center gap-8">
+                 <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-white transition-colors">Get API Key</a>
+                 <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-white transition-colors">Billing Docs</a>
               </div>
            </div>
         </div>
@@ -522,147 +466,122 @@ ${c.testResults}
       <Sidebar currentStage={stage} logs={logs} />
       
       <main className="flex-1 overflow-y-auto relative custom-scrollbar flex flex-col">
-        {/* Navigation Bar */}
-        <div className="bg-slate-950/95 border-b border-slate-900/50 p-6 flex items-center justify-between backdrop-blur-3xl sticky top-0 z-50">
-          <div className="flex items-center gap-6">
-            <div className="flex bg-slate-900/80 p-1.5 rounded-[2rem] border border-slate-800 shadow-2xl">
-               {[
-                 { id: 'research', label: 'Discovery Lab', icon: Flask },
-                 { id: 'design', label: 'Master Shell', icon: LayoutDashboard },
-                 { id: 'breakthroughs', label: 'Evolution Traces', icon: Award }
-               ].map((nav) => (
-                 <button 
-                   key={nav.id}
-                   onClick={() => setViewMode(nav.id as any)}
-                   className={`flex items-center gap-3 px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 ${viewMode === nav.id ? 'bg-blue-600 text-white shadow-[0_10px_20px_rgba(37,99,235,0.3)]' : 'text-slate-500 hover:text-white'}`}
-                 >
-                   <nav.icon className="w-4 h-4" /> {nav.label}
-                 </button>
-               ))}
-            </div>
+        {/* Nav */}
+        <div className="bg-slate-950/90 border-b border-slate-900/50 p-5 flex items-center justify-between backdrop-blur-xl sticky top-0 z-50">
+          <div className="flex bg-slate-900/60 p-1 rounded-2xl border border-slate-800 shadow-xl">
+             {[
+               { id: 'research', label: 'Laboratory', icon: Flask },
+               { id: 'design', label: 'Master Blueprint', icon: LayoutDashboard },
+               { id: 'archive', label: 'Research Archive', icon: BookOpen }
+             ].map((nav) => (
+               <button 
+                 key={nav.id}
+                 onClick={() => setViewMode(nav.id as any)}
+                 className={`flex items-center gap-2.5 px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === nav.id ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}
+               >
+                 <nav.icon className="w-3.5 h-3.5" /> {nav.label}
+               </button>
+             ))}
           </div>
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+             <button onClick={handleOpenSelectKey} className="p-3 bg-slate-900 text-slate-400 hover:text-blue-400 border border-slate-800 rounded-xl transition-all shadow-md active:scale-90" title="Change API Key">
+               <Key className="w-4 h-4" />
+             </button>
              <button 
                onClick={() => {
                  const newState = !isAutonomous;
                  setIsAutonomous(newState);
                  if (newState && stage === ResearchStage.IDLE) runCycle();
-                 addLog('System', newState ? 'AUTONOMOUS LOOP ENGAGED' : 'AUTONOMOUS LOOP PAUSED', newState ? 'success' : 'warning');
                }}
-               className={`flex items-center gap-4 px-10 py-4 rounded-[2.5rem] text-[11px] font-black uppercase tracking-[0.3em] transition-all active:scale-95 ${
-                 isAutonomous ? 'bg-orange-600 text-white animate-pulse shadow-[0_0_50px_rgba(249,115,22,0.6)]' : 'bg-slate-900 text-slate-500 border border-slate-800 hover:text-white'
+               className={`flex items-center gap-3 px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all ${
+                 isAutonomous ? 'bg-orange-600 text-white animate-pulse' : 'bg-slate-900 text-slate-500 border border-slate-800 hover:text-white'
                }`}
              >
-               {isAutonomous ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
-               {isAutonomous ? 'PAUSE LOOP' : 'RESUME LOOP'}
+               {isAutonomous ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+               {isAutonomous ? 'Loop Active' : 'Start Autonomous'}
              </button>
-
-             <button 
-               onClick={downloadFullSystemState}
-               className="p-4 bg-emerald-600/20 text-emerald-500 hover:bg-emerald-600 hover:text-white rounded-[1.5rem] transition-all border border-emerald-500/20 shadow-lg active:scale-90 flex items-center gap-3 px-6"
-               title="EMERGENCY RECOVERY: Export everything to JSON"
-             >
-                <HardDriveDownload className="w-5 h-5" /> 
-                <span className="text-[10px] font-black uppercase tracking-widest">RECOVERY</span>
+             <button onClick={downloadFullSystemState} className="p-3 bg-emerald-600/10 text-emerald-500 hover:bg-emerald-600 hover:text-white rounded-xl transition-all border border-emerald-500/20 active:scale-90" title="Export State">
+                <HardDriveDownload className="w-4 h-4" /> 
              </button>
           </div>
         </div>
 
-        <div className="flex-1 max-w-7xl mx-auto px-12 py-20 w-full relative">
+        <div className="flex-1 max-w-7xl mx-auto px-10 py-16 w-full">
           {stage === ResearchStage.IDLE && viewMode === 'research' && (
-            <div className="text-center py-20 space-y-20 animate-in fade-in slide-in-from-bottom-24 duration-1000">
+            <div className="text-center py-24 space-y-12">
                <div className="relative inline-block group cursor-pointer" onClick={runCycle}>
-                 <div className="absolute inset-0 blur-[150px] bg-blue-500/40 rounded-full group-hover:bg-blue-400/60 transition-all duration-1000 animate-pulse" />
-                 <div className="p-16 bg-slate-900 border-2 border-slate-800 rounded-[5rem] relative shadow-[0_40px_100px_rgba(0,0,0,0.8)] transition-transform group-hover:scale-105">
-                    <BrainCircuit className="w-32 h-32 text-blue-400" />
+                 <div className="absolute inset-0 blur-[100px] bg-blue-500/20 rounded-full group-hover:bg-blue-500/40 transition-all duration-1000" />
+                 <div className="p-12 bg-slate-900 border border-slate-800 rounded-[4rem] relative shadow-2xl transition-transform group-hover:scale-105">
+                    <BrainCircuit className="w-24 h-24 text-blue-400" />
                  </div>
                </div>
-               <div className="space-y-10">
-                 <h1 className="text-[10rem] font-black uppercase tracking-tighter leading-[0.75] italic">
-                   Mairis Prime
-                 </h1>
-                 <p className="text-3xl text-slate-400 max-w-4xl mx-auto font-light leading-relaxed tracking-tight">
-                   Building a 100% Viable Aerospace System through <span className="text-blue-400 font-bold underline decoration-blue-500/30">Autonomous Mathematical Proof</span>.
+               <div className="space-y-6">
+                 <h1 className="text-8xl font-black uppercase tracking-tighter italic">Mairis Prime</h1>
+                 <p className="text-2xl text-slate-400 max-w-3xl mx-auto font-light leading-relaxed">
+                   Synthesis of 100% Viable Aerospace Propulsion through <span className="text-blue-400 font-bold underline decoration-blue-500/20">Recursive Mathematical Proof</span>.
                  </p>
                </div>
-               <div className="flex flex-wrap justify-center gap-10 pt-10">
-                 <button onClick={runCycle} className="group px-20 py-10 bg-blue-600 hover:bg-blue-500 text-white rounded-[4rem] font-black text-base uppercase tracking-[0.5em] flex items-center gap-10 shadow-[0_50px_120px_rgba(37,99,235,0.6)] transition-all active:scale-95">
-                   <Power className="w-8 h-8" /> Start Discovery
+               <div className="flex flex-wrap justify-center gap-6 pt-8">
+                 <button onClick={runCycle} className="px-12 py-6 bg-blue-600 hover:bg-blue-500 text-white rounded-[2rem] font-black text-xs uppercase tracking-[0.3em] flex items-center gap-6 shadow-2xl transition-all active:scale-95">
+                   <Power className="w-5 h-5" /> Initialize Discovery
                  </button>
-                 <button onClick={resetProgress} className="px-12 py-10 bg-slate-950 text-red-500 rounded-[4rem] font-black text-sm uppercase tracking-[0.3em] border-2 border-slate-800 hover:border-red-600 transition-all flex items-center gap-4">
-                   <RotateCcw className="w-6 h-6" /> Factory Reset
+                 <button onClick={resetProgress} className="px-10 py-6 bg-slate-950 text-red-500 rounded-[2rem] font-black text-[10px] uppercase tracking-[0.2em] border border-slate-800 hover:border-red-600 transition-all flex items-center gap-3">
+                   <RotateCcw className="w-4 h-4" /> System Reset
                  </button>
                </div>
             </div>
           )}
 
           {viewMode === 'design' && (
-            <div className="space-y-16 animate-in fade-in duration-1000 pb-32">
-               <h2 className="text-7xl font-black uppercase tracking-tighter flex items-center gap-8 border-b border-slate-900 pb-12">
-                  <Layout className="w-20 h-20 text-blue-400" />
-                  Design Shell Core
+            <div className="space-y-12 pb-32">
+               <h2 className="text-5xl font-black uppercase tracking-tighter flex items-center gap-6 border-b border-slate-900 pb-8">
+                  <Layout className="w-12 h-12 text-blue-400" /> Shell Architecture
                </h2>
                <EngineSchematic />
-               <div className="bg-slate-900/50 p-16 rounded-[5rem] border border-slate-800 shadow-2xl relative overflow-hidden">
-                  <h3 className="text-xs font-black uppercase tracking-[0.5em] text-slate-600 mb-12 flex items-center gap-4">
-                     <History className="w-6 h-6" /> Master Blueprint Trace
+               <div className="bg-slate-900/30 p-12 rounded-[3rem] border border-slate-800 shadow-xl">
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-600 mb-8 flex items-center gap-3">
+                     <History className="w-4 h-4" /> Blueprint Trace
                   </h3>
-                  <div className="text-3xl leading-[2] text-slate-300 font-light italic p-16 bg-slate-950/60 rounded-[4rem] border border-slate-800 relative overflow-hidden">
-                     <p>{knowledge.masterDesignDoc}</p>
+                  <div className="text-xl leading-relaxed text-slate-400 font-light italic p-10 bg-slate-950/40 rounded-3xl border border-slate-900">
+                     {knowledge.masterDesignDoc}
                   </div>
                </div>
             </div>
           )}
 
-          {viewMode === 'breakthroughs' && (
-            <div className="space-y-16 animate-in fade-in duration-800 pb-32">
-               <h2 className="text-7xl font-black uppercase tracking-tighter flex items-center gap-8 border-b border-slate-900 pb-12">
-                  <Award className="w-20 h-20 text-orange-400" />
-                  Evolution Trace
+          {viewMode === 'archive' && (
+            <div className="space-y-12 pb-32">
+               <h2 className="text-5xl font-black uppercase tracking-tighter flex items-center gap-6 border-b border-slate-900 pb-8">
+                  <BookOpen className="w-12 h-12 text-emerald-400" /> Research Archive
                </h2>
-               {knowledge.breakthroughs.length === 0 ? (
-                 <div className="py-56 text-center opacity-40">
-                    <p className="text-3xl font-light italic">No architectural milestones recorded.</p>
+               {knowledge.pastReports.length === 0 ? (
+                 <div className="py-40 text-center opacity-30">
+                    <p className="text-2xl font-light italic">The library is empty. Awaiting first breakthrough.</p>
                  </div>
                ) : (
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-16">
-                    {knowledge.breakthroughs.map((bt) => (
-                      <div key={bt.id} className="bg-slate-900/50 p-16 rounded-[5rem] border border-orange-500/10 hover:border-orange-500/40 transition-all group relative overflow-hidden shadow-3xl">
-                         <div className="absolute -top-32 -right-32 w-80 h-80 bg-orange-500/5 rounded-full blur-[100px]" />
-                         <div className="flex justify-between items-start mb-12">
-                            <div className="px-8 py-3 bg-orange-500/10 text-orange-400 rounded-full text-[12px] font-black uppercase tracking-widest border border-orange-500/20">Critical Achievement</div>
-                            {bt.reportId && (
-                              <button 
-                                onClick={() => {
-                                  const r = knowledge.pastReports.find(pr => pr.id === bt.reportId);
-                                  if (r) { setReport(r); setViewMode('research'); }
-                                }}
-                                className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-blue-500 hover:text-white transition-all"
-                              >
-                                <FileText className="w-6 h-6" />
-                              </button>
-                            )}
-                         </div>
-                         <h3 className="text-6xl font-black text-white mb-10 tracking-tight leading-[0.85]">{bt.title}</h3>
-                         <p className="text-2xl text-slate-400 leading-relaxed font-light italic mb-12">"{bt.description}"</p>
-                         
-                         <div className="bg-slate-950/80 p-10 rounded-[3rem] border border-slate-800/60 mb-12">
-                            <h4 className="text-[10px] font-black uppercase tracking-widest text-emerald-500 mb-4 flex items-center gap-3">
-                               <Fingerprint className="w-4 h-4" /> Mathematical Proof Summary
-                            </h4>
-                            <p className="text-xl text-slate-400 font-mono leading-relaxed whitespace-pre-wrap italic">
-                               {bt.proofOfConcept || "See detailed technical package for proof."}
-                            </p>
-                         </div>
-
-                         <div className="mt-auto pt-12 border-t border-slate-800 flex items-center justify-between">
-                            <div className="flex flex-col">
-                               <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-1">Impact Rank</span>
-                               <span className="text-4xl font-black text-orange-400 tracking-tighter">{bt.impactScore}σ</span>
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {knowledge.pastReports.map((rep) => (
+                      <div key={rep.id} className="bg-slate-900/40 p-10 rounded-[3rem] border border-slate-800 hover:border-blue-500/30 transition-all group relative overflow-hidden shadow-xl">
+                         <div className="flex justify-between items-start mb-8">
+                            <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${rep.isBreakthrough ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/20'}`}>
+                               {rep.isBreakthrough ? 'Breakthrough Milestone' : 'Research Paper'}
                             </div>
-                            <div className="text-xl font-mono text-slate-500">{bt.date}</div>
+                            <button onClick={() => downloadReport(rep)} className="p-2.5 bg-slate-950 rounded-xl border border-slate-800 text-slate-500 hover:text-white transition-all">
+                               <Download className="w-4 h-4" />
+                            </button>
                          </div>
+                         <h3 className="text-3xl font-black text-white mb-6 tracking-tight leading-tight">{rep.title}</h3>
+                         <div className="flex items-center gap-6 mb-8 text-[11px] text-slate-500 font-mono">
+                            <span className="flex items-center gap-2"><Target className="w-3.5 h-3.5" /> Cycle {rep.id.split('-')[1].substring(5)}</span>
+                            <span>{new Date(rep.timestamp).toLocaleDateString()}</span>
+                         </div>
+                         <button 
+                           onClick={() => { setReport(rep); setViewMode('research'); }}
+                           className="w-full py-4 bg-slate-950 hover:bg-blue-600 hover:text-white text-blue-500 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] border border-slate-800 transition-all flex items-center justify-center gap-3"
+                         >
+                            <FileText className="w-4 h-4" /> View Full Proof Package
+                         </button>
                       </div>
                     ))}
                  </div>
@@ -671,103 +590,89 @@ ${c.testResults}
           )}
 
           {viewMode === 'research' && report && (
-            <div className="animate-in slide-in-from-bottom-32 duration-1000">
-               <div className="bg-white text-slate-900 p-20 md:p-40 rounded-[7rem] shadow-3xl font-serif border border-slate-200 relative overflow-hidden">
-                  <header className="border-b-[18px] border-slate-900 pb-28 mb-40 flex flex-col lg:flex-row justify-between items-end gap-20">
-                     <div className="space-y-12 max-w-7xl">
-                        <div className="flex items-center gap-6 text-blue-700 font-sans font-black uppercase text-sm tracking-[0.7em]">
-                           <Milestone className="w-10 h-10" /> Cycle {knowledge.cycleCount} • Proof Package
+            <div className="animate-in slide-in-from-bottom-20 duration-700">
+               <button onClick={() => setReport(null)} className="mb-8 flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-white transition-all">
+                  <ArrowLeft className="w-4 h-4" /> Back to Dashboard
+               </button>
+               
+               <div className="bg-white text-slate-900 p-12 md:p-24 rounded-[5rem] shadow-3xl font-serif border border-slate-200 relative overflow-hidden">
+                  <header className="border-b-8 border-slate-900 pb-16 mb-24 flex flex-col lg:flex-row justify-between items-end gap-12">
+                     <div className="space-y-8 max-w-4xl">
+                        <div className="flex items-center gap-4 text-blue-700 font-sans font-black uppercase text-[10px] tracking-[0.5em]">
+                           <Milestone className="w-8 h-8" /> Mairis Prime Proof Package
                         </div>
-                        <h1 className="text-[10rem] font-black uppercase leading-[0.75] tracking-tighter text-slate-900 italic">{report.title}</h1>
+                        <h1 className="text-8xl font-black uppercase leading-[0.85] tracking-tighter text-slate-900 italic">{report.title}</h1>
                      </div>
-                     <div className="text-right font-sans shrink-0 space-y-8">
-                        <div className="text-sm font-black uppercase text-slate-400 tracking-[0.6em]">Consensus Audit</div>
-                        <div className="text-7xl font-black bg-slate-900 text-white px-16 py-10 rounded-[3rem] flex items-center gap-6">
-                           {Math.round(report.verificationSuite?.overallConfidence! * 100)}% <CheckCircle className="w-12 h-12 text-emerald-400" />
+                     <div className="text-right font-sans shrink-0 space-y-4">
+                        <div className="text-[10px] font-black uppercase text-slate-400 tracking-[0.4em]">Audit Consensus</div>
+                        <div className="text-5xl font-black bg-slate-900 text-white px-10 py-6 rounded-3xl flex items-center gap-4">
+                           {Math.round(report.verificationSuite?.overallConfidence! * 100)}% <CheckCircle className="w-8 h-8 text-emerald-400" />
                         </div>
                      </div>
                   </header>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-40">
-                     <div className="lg:col-span-4 space-y-32 font-sans">
-                        <div className="space-y-14 bg-slate-50 p-12 rounded-[4rem] border-2 border-slate-100 shadow-inner">
-                           <h3 className="text-sm font-black uppercase tracking-[0.7em] text-slate-400 border-l-[12px] border-emerald-600 pl-12 flex items-center gap-4">
-                              <FunctionSquare className="w-6 h-6 text-emerald-600" /> Formal Proof
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-24">
+                     <div className="lg:col-span-4 space-y-20 font-sans">
+                        <div className="space-y-8 bg-slate-50 p-10 rounded-[3rem] border border-slate-200 shadow-inner">
+                           <h3 className="text-[10px] font-black uppercase tracking-[0.5em] text-slate-400 border-l-8 border-emerald-600 pl-6 flex items-center gap-3">
+                              Formal Proof
                            </h3>
-                           <div className="text-xl leading-[1.7] text-slate-600 font-mono whitespace-pre-wrap p-6 bg-white rounded-3xl border border-slate-200 shadow-sm">
+                           <div className="text-sm leading-relaxed text-slate-600 font-mono whitespace-pre-wrap p-5 bg-white rounded-2xl border border-slate-200">
                              {report.formalProof}
                            </div>
                         </div>
                         
-                        <div className="space-y-14">
-                           <h4 className="text-sm font-black uppercase tracking-[0.7em] text-slate-400 border-l-[12px] border-orange-500 pl-12">Optimization Curve</h4>
+                        <div className="space-y-8">
+                           <h4 className="text-[10px] font-black uppercase tracking-[0.5em] text-slate-400 border-l-8 border-orange-500 pl-6">Validation Curve</h4>
                            <DataChart data={report.chartData} />
-                        </div>
-
-                        <div className="space-y-12">
-                           {report.evidenceData.map((d, i) => (
-                             <div key={i} className="p-12 bg-slate-50 border border-slate-200 rounded-[4rem]">
-                                <div className="flex justify-between items-center mb-6">
-                                   <span className="text-[14px] font-black text-slate-400 uppercase tracking-[0.5em]">{d.label}</span>
-                                   {d.trend === 'rising' ? <TrendingUp className="w-8 h-8 text-emerald-500" /> : <TrendingDown className="w-8 h-8 text-red-500" />}
-                                </div>
-                                <div className="text-8xl font-black text-slate-900 tracking-tighter leading-none">{d.value}<span className="text-2xl text-slate-400 ml-4 font-normal">σ</span></div>
-                             </div>
-                           ))}
                         </div>
                      </div>
 
-                     <div className="lg:col-span-8 space-y-36">
-                        <section className="space-y-20">
-                           <h3 className="text-6xl font-black uppercase tracking-tight text-slate-900 flex items-center gap-16 font-sans">
-                              <span className="w-32 h-4 bg-slate-900 rounded-full" /> I. Methodology
+                     <div className="lg:col-span-8 space-y-24">
+                        <section className="space-y-12">
+                           <h3 className="text-4xl font-black uppercase tracking-tight text-slate-900 flex items-center gap-10 font-sans">
+                              <span className="w-20 h-2 bg-slate-900 rounded-full" /> Methodology
                            </h3>
-                           <div className="text-5xl leading-[1.8] text-slate-700 font-light first-letter:text-[15rem] first-letter:font-black first-letter:mr-10 first-letter:float-left first-letter:leading-none">
+                           <div className="text-3xl leading-relaxed text-slate-700 font-light italic">
                              {report.methodology}
                            </div>
                         </section>
 
-                        <section className="bg-slate-50 p-20 rounded-[6rem] border-2 border-slate-100 space-y-12 relative overflow-hidden group">
-                           <Cpu className="absolute top-0 right-0 w-40 h-40 p-8 text-blue-600/10 group-hover:text-blue-600/20 transition-colors" />
-                           <h3 className="text-4xl font-black font-sans uppercase tracking-[0.3em] flex items-center gap-6 relative z-10">
-                              <Flask className="w-8 h-8 text-blue-500" /> Simulation Artifacts
+                        <section className="bg-slate-50 p-12 rounded-[4rem] border border-slate-200 space-y-8 relative overflow-hidden group">
+                           <h3 className="text-xl font-black font-sans uppercase tracking-[0.2em] flex items-center gap-4">
+                              <Flask className="w-6 h-6 text-blue-500" /> Verification Lab Results
                            </h3>
-                           <div className="space-y-4 relative z-10">
+                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                               {report.verificationSuite?.codeLabResults?.map((c, idx) => (
-                                <div key={idx} className="p-6 bg-white border border-slate-200 rounded-3xl flex justify-between items-center group/item hover:border-blue-500 transition-all">
-                                   <div className="flex items-center gap-4">
-                                      <FileCode className="w-8 h-8 text-slate-400" />
+                                <div key={idx} className="p-5 bg-white border border-slate-200 rounded-2xl flex justify-between items-center hover:border-blue-500 transition-all shadow-sm">
+                                   <div className="flex items-center gap-3">
+                                      <FileCode className="w-6 h-6 text-slate-300" />
                                       <div>
-                                         <div className="text-[14px] font-black text-slate-900 uppercase tracking-wider">{c.filename}</div>
-                                         <div className="text-[11px] text-slate-500 font-mono uppercase">{c.status} • {c.language}</div>
+                                         <div className="text-[10px] font-black text-slate-900 uppercase tracking-wider">{c.filename}</div>
+                                         <div className="text-[9px] text-slate-500 font-mono">{c.status}</div>
                                       </div>
                                    </div>
-                                   <button 
-                                     onClick={() => downloadFile(c.code, c.filename, 'text/plain')}
-                                     className="p-4 bg-slate-50 hover:bg-slate-100 rounded-full text-slate-400 hover:text-blue-600 opacity-0 group-hover/item:opacity-100 transition-all"
-                                   >
-                                      <Download className="w-5 h-5" />
-                                   </button>
+                                   <button onClick={() => downloadFile(c.code, c.filename, 'text/plain')} className="text-slate-300 hover:text-blue-600"><Download className="w-4 h-4" /></button>
                                 </div>
                               ))}
                            </div>
                         </section>
 
-                        <section className="space-y-20">
-                           <h3 className="text-6xl font-black uppercase tracking-tight text-slate-900 flex items-center gap-16 font-sans">
-                              <span className="w-32 h-4 bg-slate-900 rounded-full" /> II. Verdict
+                        <section className="space-y-12">
+                           <h3 className="text-4xl font-black uppercase tracking-tight text-slate-900 flex items-center gap-10 font-sans">
+                              <span className="w-20 h-2 bg-slate-900 rounded-full" /> Verdict
                            </h3>
-                           <div className="text-5xl leading-[1.9] text-slate-700 bg-slate-50 p-24 rounded-[6rem] border-4 border-slate-100 italic shadow-inner relative">
-                             <p className="relative z-10 font-light">{report.conclusion}</p>
+                           <div className="text-4xl leading-relaxed text-slate-700 bg-slate-50 p-12 rounded-[4rem] border-2 border-slate-100 italic shadow-inner">
+                             <p className="font-light">{report.conclusion}</p>
                            </div>
                         </section>
                         
-                        <footer className="flex justify-end pt-12 border-t border-slate-200 gap-6">
+                        <footer className="flex justify-end pt-10 border-t border-slate-200">
                           <button 
                             onClick={() => downloadReport(report)}
-                            className="flex items-center gap-4 px-12 py-6 bg-slate-900 text-white rounded-full font-black text-xs uppercase tracking-widest shadow-2xl transition-all active:scale-95"
+                            className="flex items-center gap-4 px-10 py-5 bg-slate-900 text-white rounded-full font-black text-[10px] uppercase tracking-widest shadow-xl transition-all active:scale-95"
                           >
-                            <Download className="w-6 h-6" /> Export Technical Package
+                            <Download className="w-5 h-5" /> Export Data Artifacts
                           </button>
                         </footer>
                      </div>
@@ -780,61 +685,53 @@ ${c.testResults}
 
       {/* Autonomous Hud */}
       {isAutonomous && (
-         <div className="fixed bottom-12 left-1/2 -translate-x-1/2 z-[60] bg-slate-950/98 backdrop-blur-3xl px-16 py-12 rounded-[5rem] border-2 border-orange-500/50 shadow-3xl flex items-center gap-20 scale-110">
-            <div className="flex items-center gap-12">
+         <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[60] bg-slate-950/95 backdrop-blur-2xl px-12 py-8 rounded-[4rem] border border-orange-500/30 shadow-3xl flex items-center gap-12 scale-110">
+            <div className="flex items-center gap-8">
                <div className="relative">
-                 <div className="w-24 h-24 border-[10px] border-orange-500/20 border-t-orange-500 rounded-full animate-spin" />
+                 <div className="w-16 h-16 border-8 border-orange-500/10 border-t-orange-500 rounded-full animate-spin" />
                  <div className="absolute inset-0 flex items-center justify-center">
-                    <Database className="w-10 h-10 text-orange-500 animate-pulse" />
+                    <Database className="w-6 h-6 text-orange-500 animate-pulse" />
                  </div>
                </div>
                <div className="flex flex-col">
-                 <span className="text-3xl font-black text-white uppercase tracking-[0.3em] italic">Autonomous Loop</span>
-                 <span className="text-[12px] text-orange-500 font-black uppercase tracking-[0.6em]">{stage.replace('_', ' ')}...</span>
+                 <span className="text-xl font-black text-white uppercase tracking-[0.2em] italic">Orchestrator Loop</span>
+                 <span className="text-[10px] text-orange-500 font-black uppercase tracking-[0.4em]">{stage.replace('_', ' ')}...</span>
                </div>
             </div>
-            <button onClick={() => setIsAutonomous(false)} className="p-8 bg-orange-600/10 text-orange-500 hover:bg-orange-600 hover:text-white rounded-[3rem] border-2 border-orange-500/20 shadow-2xl transition-all active:scale-95">
-              <Pause className="w-10 h-10" />
+            <button onClick={() => setIsAutonomous(false)} className="p-5 bg-orange-600/10 text-orange-500 hover:bg-orange-600 hover:text-white rounded-[2rem] border border-orange-500/20 shadow-xl transition-all active:scale-95">
+              <Pause className="w-6 h-6" />
             </button>
          </div>
       )}
 
       {/* Inspection Modal */}
       {inspectingSub && (
-        <div className="fixed inset-0 z-[100] bg-slate-950/80 backdrop-blur-3xl flex items-center justify-center p-12 animate-in fade-in zoom-in duration-500">
-           <div className="bg-slate-900 border-2 border-slate-800 rounded-[5rem] w-full max-w-5xl p-24 relative shadow-3xl overflow-hidden">
-              <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blue-500/5 rounded-full blur-[150px] -mr-[300px] -mt-[300px]" />
-              <button onClick={() => setInspectingSub(null)} className="absolute top-12 right-12 p-6 bg-slate-950 border border-slate-800 rounded-full text-slate-500 hover:text-white transition-all hover:rotate-90">
-                <RotateCcw className="w-8 h-8" />
+        <div className="fixed inset-0 z-[100] bg-slate-950/80 backdrop-blur-xl flex items-center justify-center p-12 animate-in fade-in zoom-in duration-300">
+           <div className="bg-slate-900 border border-slate-800 rounded-[4rem] w-full max-w-4xl p-16 relative shadow-3xl">
+              <button onClick={() => setInspectingSub(null)} className="absolute top-10 right-10 p-4 bg-slate-950 border border-slate-800 rounded-full text-slate-500 hover:text-white transition-all">
+                <RotateCcw className="w-6 h-6" />
               </button>
-              <div className="flex items-center gap-12 mb-20">
-                 <div className="w-32 h-32 rounded-[2.5rem] bg-blue-600/10 border-2 border-blue-600/20 flex items-center justify-center text-blue-400 shadow-2xl">
-                    <Layers className="w-16 h-16" />
+              <div className="flex items-center gap-10 mb-12">
+                 <div className="w-24 h-24 rounded-3xl bg-blue-600/10 border border-blue-600/20 flex items-center justify-center text-blue-400">
+                    <Layers className="w-12 h-12" />
                  </div>
                  <div>
-                    <div className="text-[12px] font-black uppercase text-blue-500 tracking-[0.5em] mb-4">Core Module</div>
-                    <h2 className="text-7xl font-black uppercase tracking-tighter text-white leading-none mb-6">{inspectingSub.name}</h2>
-                    <div className="text-3xl font-black font-mono text-emerald-400">{inspectingSub.status}% READY</div>
+                    <div className="text-[10px] font-black uppercase text-blue-500 tracking-[0.4em] mb-2">Subsystem Diagnostic</div>
+                    <h2 className="text-5xl font-black uppercase tracking-tighter text-white">{inspectingSub.name}</h2>
+                    <div className="text-xl font-black font-mono text-emerald-400">{inspectingSub.status}% VIABLE</div>
                  </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-20">
-                 <div className="space-y-12">
-                    <h3 className="text-[12px] font-black uppercase tracking-[0.6em] text-slate-500">Architecture Spec</h3>
-                    <p className="text-4xl text-slate-300 font-light leading-relaxed italic border-l-8 border-blue-600/30 pl-12">"{inspectingSub.specifications}"</p>
+              <div className="space-y-10">
+                 <div className="bg-slate-950/50 p-10 rounded-3xl border border-slate-800">
+                    <h3 className="text-[9px] font-black uppercase tracking-[0.5em] text-slate-500 mb-4">Architecture Manifest</h3>
+                    <p className="text-2xl text-slate-300 font-light italic leading-relaxed">"{inspectingSub.specifications}"</p>
                  </div>
-                 <div className="bg-slate-950/80 p-16 rounded-[4rem] border-2 border-slate-800 flex flex-col items-center justify-center text-center space-y-10">
-                    <Target className="w-24 h-24 text-blue-500 animate-pulse" />
-                    <div className="space-y-6">
-                       <h4 className="text-3xl font-black text-white uppercase tracking-tight">Dedicated Discovery</h4>
-                       <p className="text-xl text-slate-500 font-light">Focus research purely on this module.</p>
-                    </div>
-                    <button 
-                      onClick={() => { setPrioritySubsystem(inspectingSub.name.toLowerCase().split(' ')[0]); setInspectingSub(null); setViewMode('research'); runCycle(); }}
-                      className="w-full py-8 bg-blue-600 text-white rounded-[2.5rem] font-black text-sm uppercase tracking-[0.4em] shadow-2xl hover:bg-blue-500 transition-all active:scale-95"
-                    >
-                      Launch Focal Research
-                    </button>
-                 </div>
+                 <button 
+                   onClick={() => { setPrioritySubsystem(inspectingSub.name.toLowerCase().split(' ')[0]); setInspectingSub(null); setViewMode('research'); runCycle(); }}
+                   className="w-full py-6 bg-blue-600 text-white rounded-3xl font-black text-[10px] uppercase tracking-[0.3em] shadow-xl hover:bg-blue-500 transition-all active:scale-95"
+                 >
+                   Initiate Focal Research
+                 </button>
               </div>
            </div>
         </div>
