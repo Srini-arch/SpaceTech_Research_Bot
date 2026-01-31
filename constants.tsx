@@ -11,14 +11,19 @@ import {
   Binary,
   Cpu,
   Microscope,
-  HardDrive
+  HardDrive,
+  Wind,
+  Wrench,
+  Zap,
+  Flame,
+  Droplets
 } from 'lucide-react';
 
 export const AGENT_CONFIGS = [
   {
     id: 1,
-    name: 'Topic Discovery Engine',
-    role: 'Identifying research gaps and novel directions',
+    name: 'Strategic Discovery Unit',
+    role: 'Scanning master blueprint for TRL gaps',
     icon: <Telescope className="w-5 h-5" />,
     temp: 0.5,
   },
@@ -31,31 +36,31 @@ export const AGENT_CONFIGS = [
   },
   {
     id: 3,
+    name: 'MHD Plasma Specialist',
+    role: 'Modeling magnetohydrodynamic core stability',
+    icon: <Flame className="w-5 h-5" />,
+    temp: 0.2,
+  },
+  {
+    id: 4,
+    name: 'Fluid Dynamics Architect',
+    role: 'Optimizing high-pressure fuel flow vectors',
+    icon: <Droplets className="w-5 h-5" />,
+    temp: 0.2,
+  },
+  {
+    id: 5,
     name: 'Hypothesis Generator',
     role: 'Formulating testable aerospace conjectures',
     icon: <Lightbulb className="w-5 h-5" />,
     temp: 0.4,
   },
   {
-    id: 4,
+    id: 6,
     name: 'Verification Suite (Physics)',
     role: 'First-principles validation of engine mechanics',
     icon: <Binary className="w-5 h-5" />,
     temp: 0.2,
-  },
-  {
-    id: 5,
-    name: 'Verification Suite (Materials)',
-    role: 'Assessing thermal and structural feasibility',
-    icon: <Microscope className="w-5 h-5" />,
-    temp: 0.2,
-  },
-  {
-    id: 6,
-    name: 'Journal Editor',
-    role: 'Formal scientific publication formatting',
-    icon: <PenTool className="w-5 h-5" />,
-    temp: 0.4,
   },
   {
     id: 7,
